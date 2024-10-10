@@ -22,7 +22,7 @@ brotli=1.0.9=h2bbff1b_8
 brotli-bin=1.0.9=h2bbff1b_8
 bzip2=1.0.8=h2bbff1b_6
 c-ares=1.19.1=h2bbff1b_0
-ca-certificates=2024.7.2=haa95532_0
+ca-certificates=2024.8.30=h56e8100_0
 cffi=1.17.1=py39h827c3e9_0
 colorama=0.4.6=py39haa95532_0
 comm=0.2.1=py39haa95532_0
@@ -83,8 +83,8 @@ libtiff=4.5.1=hd77b12b_0
 libwebp-base=1.3.2=h2bbff1b_0
 lz4-c=1.9.4=h2bbff1b_1
 markupsafe=2.1.3=py39h2bbff1b_0
-matplotlib=3.7.1=py39haa95532_1
-matplotlib-base=3.7.1=py39hf11a4ad_1
+matplotlib=3.9.2=py39haa95532_0
+matplotlib-base=3.9.2=py39he19b0ae_0
 matplotlib-inline=0.1.6=py39haa95532_0
 mistune=2.0.4=py39haa95532_0
 mkl=2023.1.0=h6b88ed4_46358
@@ -102,13 +102,14 @@ numexpr=2.8.7=py39h2cd9be0_0
 numpy=1.25.0=py39h055cbcc_0
 numpy-base=1.25.0=py39h65a83cf_0
 openjpeg=2.5.2=hae555c5_0
-openssl=3.0.15=h827c3e9_0
+openssl=3.3.2=h2466b09_0
 orc=1.7.4=h623e30f_1
 overrides=7.4.0=py39haa95532_0
 packaging=24.1=py39haa95532_0
 pandas=1.5.3=py39hf11a4ad_0
 pandocfilters=1.5.0=pyhd3eb1b0_0
 parso=0.8.3=pyhd3eb1b0_0
+patsy=0.5.6=pyhd8ed1ab_0
 pickleshare=0.7.5=pyhd3eb1b0_1003
 pillow=10.4.0=py39h827c3e9_0
 pip=23.1.2=py39haa95532_0
@@ -128,6 +129,7 @@ python=3.9.16=h1aa4202_3
 python-dateutil=2.9.0post0=py39haa95532_2
 python-fastjsonschema=2.16.2=py39haa95532_0
 python-json-logger=2.0.7=py39haa95532_0
+python_abi=3.9=2_cp39
 pytz=2024.1=py39haa95532_0
 pywin32=305=py39h2bbff1b_0
 pywinpty=2.0.10=py39h5da7b33_0
@@ -151,6 +153,7 @@ sniffio=1.3.0=py39haa95532_0
 soupsieve=2.5=py39haa95532_0
 sqlite=3.45.3=h2bbff1b_0
 stack_data=0.2.0=pyhd3eb1b0_0
+statsmodels=0.14.4=py39h4b0a98a_0
 tbb=2021.8.0=h59b6b97_0
 terminado=0.17.1=py39haa95532_0
 threadpoolctl=3.5.0=py39h9909e9c_0
@@ -161,10 +164,12 @@ traitlets=5.14.3=py39haa95532_0
 typing-extensions=4.11.0=py39haa95532_0
 typing_extensions=4.11.0=py39haa95532_0
 tzdata=2024a=h04d1e81_0
+ucrt=10.0.22621.0=h57928b3_1
 unicodedata2=15.1.0=py39h2bbff1b_0
 utf8proc=2.6.1=h2bbff1b_1
 vc=14.40=h2eaa2aa_1
-vs2015_runtime=14.40.33807=h98bb1dd_1
+vc14_runtime=14.40.33810=hcc2c482_22
+vs2015_runtime=14.40.33810=h3bf8584_22
 wcwidth=0.2.5=pyhd3eb1b0_0
 webencodings=0.5.1=py39haa95532_1
 websocket-client=1.8.0=py39haa95532_0
