@@ -224,7 +224,7 @@ def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=Non
     else:
         raise ValueError("Either top_n or categories_to_keep must be provided.")
     
-    print(f"Column {column} has ben processed.")
+    print(f"Column {column} has been processed.")
     
     return df
 
