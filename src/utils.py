@@ -176,80 +176,102 @@ def all_to_nan_and_cat(df, cols):
         df[col] = df[col].replace(['nan', 'None'], np.nan).fillna(np.nan)
         df[col] = df[col].astype('category')
         
-       
-       
+        
+        
 # Filter categories        
-def filter_categories(df, column, top_n=None, categories_to_keep=None, other_label='Other'):
+def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other'):
     """
     Filter categories in a column based on top_n or an explicit list of categories to keep.
     
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the categorical column.
     - column (str): The name of the categorical column.
+    - drop (bool, optional): If True, drop rows with categories not in categories_to_keep or top_n.
+                             If False, label them as 'Other'. Defaults to False.
     - top_n (int, optional): Number of top categories to keep based on frequency.
     - categories_to_keep (list, optional): List of categories to retain.
-    - other_label (str): Label for aggregated other categories.
+    - other_label (str, optional): Label for aggregated other categories. Defaults to 'Other'.
     
     Returns:
     - pd.DataFrame: DataFrame with updated categorical column.
     
+    Notes:
+    - If both `top_n` and `categories_to_keep` are provided, `categories_to_keep` will be ignored, and only `top_n` will be used.
+    
     Raises:
-    - ValueError: If neither top_n nor categories_to_keep is provided.
+    - ValueError: If neither `top_n` nor `categories_to_keep` is provided.
     """
-    if top_n is not None and categories_to_keep is not None:
-        raise ValueError("Provide either top_n or categories_to_keep, not both.")
-    
     if top_n is not None:
+        # Ignore categories_to_keep if top_n is provided
         top_categories = df[column].value_counts().nlargest(top_n).index
-        df[column] = df[column].where(df[column].isin(top_categories), other_label)
-    
+        if drop:
+            df = df[df[column].isin(top_categories)]
+        else:
+            if pd.api.types.is_categorical_dtype(df[column]):
+                # Add 'Other' to categories if not present
+                if other_label not in df[column].cat.categories:
+                    df[column] = df[column].cat.add_categories([other_label])
+            df[column] = df[column].where(df[column].isin(top_categories), other_label)
     elif categories_to_keep is not None:
-        df[column] = df[column].where(df[column].isin(categories_to_keep), other_label)
-    
+        if drop:
+            df = df[df[column].isin(categories_to_keep)]
+        else:
+            if pd.api.types.is_categorical_dtype(df[column]):
+                # Add 'Other' to categories if not present
+                if other_label not in df[column].cat.categories:
+                    df[column] = df[column].cat.add_categories([other_label])
+            df[column] = df[column].where(df[column].isin(categories_to_keep), other_label)
     else:
         raise ValueError("Either top_n or categories_to_keep must be provided.")
+    
+    print(f"Column {column} has ben processed.")
     
     return df
 
 
 
-
-# retain top n ITs 
-def retain_top_n_ITs(df, n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other'):
+# Retain top_n ITs 
+def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other'):
     """
-    retain top n ITs (innovative technology codes) and replace others with `other_label`.
+    Retain top_n ITs (innovative technology codes) and replace others with `other_label`.
     
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the IT columns.
-    - n (int): Number of top ITs to retain based on frequency.
+    - top_n (int): Number of top ITs to retain based on frequency.
     - IT_columns (list, optional): List of IT column names. Defaults to ['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'].
     - other_label (str, optional): Label for aggregated other ITs. Defaults to 'Other'.
     
     Returns:
     - pd.DataFrame: DataFrame with updated IT columns.
     """
-    print(f"Retaining top {n} ITs and labeling others as '{other_label}'...")
-
-    # Concatenate all IT columns to compute global top n
+    print(f"Retaining top {top_n} ITs and labeling others as '{other_label}'...")
+    
+    # Concatenate all IT columns to compute global top_n
     combined_ITs = pd.concat([df[col] for col in IT_columns if col in df.columns], axis=0, ignore_index=True).dropna()
-
-    # Determine the top n ITs
-    top_n_ITs = combined_ITs.value_counts().nlargest(n).index.tolist()
-    print(f"Top {n} ITs: {top_n_ITs}")
-
-    # Replace ITs not in top n with other_label using vectorized operations
+    
+    # Determine the top_n ITs
+    top_n_ITs = combined_ITs.value_counts().nlargest(top_n).index.tolist()
+    print(f"Top {top_n} ITs: {top_n_ITs}")
+    
+    # Replace ITs not in top_n with other_label using vectorized operations
     for col in IT_columns:
         if col in df.columns:
+            if pd.api.types.is_categorical_dtype(df[col]):
+                # Add 'Other' to categories if not present
+                if other_label not in df[col].cat.categories:
+                    df[col] = df[col].cat.add_categories([other_label])
             original_unique = df[col].dropna().unique().tolist()
             df[col] = df[col].where(df[col].isin(top_n_ITs), other_label)
             updated_unique = df[col].dropna().unique().tolist()
             print(f"Updated '{col}' categories: {updated_unique}")
-
+    
     print("Replacement complete.\n")
     return df
 
 
-# generate categories lists and functions to choose
+
+
+# Generate categories lists and functions to choose
 def generate_category_lists(df, max_categories=20):
     """
     Generates summaries of categories for specified columns and provides
@@ -257,7 +279,7 @@ def generate_category_lists(df, max_categories=20):
 
     The output is formatted with comments and code snippets that can be
     directly copied into your codebase. You only need to manually delete
-    the category names you want to exclude from the `categories_to_keep` list or adjust the `n` parameter.
+    the category names you want to exclude from the `categories_to_keep` list or adjust the `top_n` parameter.
 
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the categorical columns.
@@ -294,9 +316,12 @@ def generate_category_lists(df, max_categories=20):
         print(f"# {value_counts_str}")
         print("# Please choose which categories to include:")
         print(f"# [{categories_list_str}]")
-        
+        # Add the note about the behavior when both top_n and categories_to_keep are provided
+        print("# Note: If both `top_n` and `categories_to_keep` are provided, `categories_to_keep` will be ignored.")
+        # Add the note about the drop parameter
+        print("# If drop = True rows will be dropped, otherwise labeled \"other\"")
         # Print the pre-filled filter_categories function call
-        print(f"df = filter_categories(df, '{col}', categories_to_keep=[{categories_list_str}])")
+        print(f"df = filter_categories(df, '{col}', drop=False, top_n=None, categories_to_keep=[{categories_list_str}])")
         print()  # Add an empty line for better readability
     
     # Handle IT columns separately
@@ -307,7 +332,7 @@ def generate_category_lists(df, max_categories=20):
         print(f"# Handling IT columns: {IT_present}")
         print("# Aggregating IT codes across IT_1 to IT_5 and listing the top categories:")
         
-        # Concatenate all IT columns to compute global top n
+        # Concatenate all IT columns to compute global top_n
         combined_ITs = pd.concat([df[col] for col in IT_present], axis=0, ignore_index=True).dropna()
         IT_value_counts = combined_ITs.value_counts().nlargest(max_categories)
         
@@ -323,10 +348,8 @@ def generate_category_lists(df, max_categories=20):
         print(f"# Current top {max_categories} ITs:")
         print(f"# [{IT_list_str}]")
         
-        # Print the pre-filled retain_top_n_ITs function call with a placeholder for n
-        print(f"df = retain_top_n_ITs(df, n=<NUMBER_OF_ITS_TO_KEEP>, IT_columns={IT_present}, other_label='Other')")
+        # Print the pre-filled retain_top_n_ITs function call with a placeholder for top_n
+        print(f"df = retain_top_n_ITs(df, top_n=10, IT_columns={IT_present}, other_label='Other')")
         print()  # Add an empty line for better readability
     else:
         print("# No IT columns found in the DataFrame.")
-
-generate_category_lists(df, max_categories=20)
