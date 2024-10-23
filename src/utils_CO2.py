@@ -1,6 +1,16 @@
-import numpy as np
+# Importing necessary librarys
+# import numpy as np
 import pandas as pd
+import numpy as np
+import pyarrow.parquet as pq  # For working with parquet files
 import re
+
+import sys
+import os
+
+# Path to the neighboring 'data' folder in the local repository
+data_path = os.path.abspath(os.path.join(os.getcwd(), '..', 'data'))
+
 
 def inspect_data(df):
     """
