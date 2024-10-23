@@ -353,3 +353,366 @@ def generate_category_lists(df, max_categories=20):
         print()  # Add an empty line for better readability
     else:
         print("# No IT columns found in the DataFrame.")
+
+
+# Define Loading data function for the local drive
+def load_data_local(file_name, file_path = data_path):
+    """
+    Loads a parquet or csv file from the local directory.
+
+    Parameters:
+    file_name (str): The name of the file to load.
+    file_path (str): The path to the directory where the file is located.
+
+    Returns:
+    pd.DataFrame: The loaded data as a pandas DataFrame.
+    """
+    # Full file path
+    full_file_path = os.path.join(file_path, file_name)
+
+    # Check file extension and load accordingly
+    if file_name.endswith('.parquet'):
+        print(f"Loading parquet file from local path: {full_file_path}")
+        table = pq.read_table(full_file_path)
+        df = table.to_pandas()  # Convert to pandas DataFrame
+    elif file_name.endswith('.csv'):
+        print(f"Loading csv file from local path: {full_file_path}")
+        df = pd.read_csv(full_file_path)  # Read CSV into pandas DataFrame
+    else:
+        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
+
+    return df
+
+# dataset to be loaded must be in google-drive (shared: Project_CO2_DS/Data/EU Data)
+# Add a shortcut by clicking to the 3 dots (file_name) to the left, click "Organise"
+# click "Add shortcut", choose "My Drive" or another folder of your preferrence but
+# also in "My Drive", click ADD...
+
+def load_data_gdrive(file_name):
+    """
+    Ensures Google Drive is mounted, searches for a file by name across the
+    entire Google Drive, and loads a parquet or csv file if found.
+
+    Parameters:
+    file_name (str): The name of the file to load.
+
+    Returns:
+    pd.DataFrame: The loaded data as a pandas DataFrame, or None if the file
+    is not found.
+    """
+    # Function to check and mount Google Drive if not already mounted
+    def check_and_mount_drive():
+        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
+        drive_mount_path = '/content/drive'
+        if not os.path.ismount(drive_mount_path):
+            print("Mounting Google Drive...")
+            # Import inside the condition when it's determined that mounting is needed
+            from google.colab import drive
+            drive.mount(drive_mount_path)
+        else:
+            print("Google Drive is already mounted.")
+
+    # Function to search for the file in Google Drive
+    def find_file_in_drive(file_name, start_path='/content/drive/My Drive'):
+        """Search for a file by name in Google Drive starting from a specified path."""
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            if file_name in filenames:
+                return os.path.join(dirpath, file_name)
+        return None
+
+    # Check and mount Google Drive if not already mounted
+    check_and_mount_drive()
+
+    # Find the file in Google Drive
+    file_path = find_file_in_drive(file_name)
+    if not file_path:
+        print("File not found.")
+        return None
+
+    # Check file extension and load accordingly
+    if file_name.endswith('.parquet'):
+        print(f"Loading parquet file: {file_path}")
+        table = pq.read_table(file_path)
+        df = table.to_pandas()  # Convert to pandas DataFrame
+    elif file_name.endswith('.csv'):
+        print(f"Loading CSV file: {file_path}")
+        df = pd.read_csv(file_path)  # Read CSV into pandas DataFrame
+    else:
+        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
+
+    return df
+
+# Define saving data function
+# Example usage:
+# save_data(df, 'my_data.csv', '/path/to/save')
+
+def save_data(df, file_name, file_path = data_path):
+    """
+    Saves a pandas DataFrame as a CSV file to the specified path.
+
+    Parameters:
+    df (pd.DataFrame): The pandas DataFrame to save.
+    file_name (str): The name of the CSV file to save (should end with .csv).
+    file_path (str): The path to the directory where the file should be saved.
+
+    Returns:
+    None
+    """
+    # Full file path
+    full_file_path = os.path.join(file_path, file_name)
+
+    # Check if the file name ends with .csv
+    if not file_name.endswith('.csv'):
+        raise ValueError("File name should end with '.csv' extension.")
+
+    # Save the DataFrame as CSV
+    print(f"Saving DataFrame as a CSV file at: {full_file_path}")
+    df.to_csv(full_file_path, index=False)
+
+    print(f"CSV file saved successfully at: {full_file_path}")
+
+    return full_file_path 
+
+
+# Function to save file in google drive folder when working with colab 
+def save_data_gdrive(df, file_name):
+    """
+    Ensures Google Drive is mounted and saves a DataFrame to Google Drive as a
+    parquet or csv file, based on the file extension provided in file_name.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to save.
+    file_name (str): The name of the file to save (with the .csv or .parquet extension).
+
+    Returns:
+    str: The path where the file was saved.
+    """
+
+    # Function to check and mount Google Drive if not already mounted
+    def check_and_mount_drive():
+        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
+        drive_mount_path = '/content/drive'
+        if not os.path.ismount(drive_mount_path):
+            print("Mounting Google Drive...")
+            # Import inside the condition when it's determined that mounting is needed
+            from google.colab import drive
+            drive.mount(drive_mount_path)
+        else:
+            print("Google Drive is already mounted.")
+
+    # Check and mount Google Drive if not already mounted
+    check_and_mount_drive()
+
+    # Define the saving directory in Google Drive (modify as needed)
+    save_dir = '/content/drive/My Drive/Project_CO2_DS/Data/EU Data'
+
+    # Create directory if it doesn't exist
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Automatically detect the file format from the file_name extension
+    if file_name.endswith('.parquet'):
+        file_format = 'parquet'
+    elif file_name.endswith('.csv'):
+        file_format = 'csv'
+    else:
+        raise ValueError("Unsupported file format. Please provide a file name with '.parquet' or '.csv' extension.")
+
+    # Full path to save the file
+    file_path = os.path.join(save_dir, file_name)
+
+    # Save the DataFrame based on the detected format
+    if file_format == 'parquet':
+        print(f"Saving DataFrame as a parquet file: {file_path}")
+        df.to_parquet(file_path, index=False)
+    elif file_format == 'csv':
+        print(f"Saving DataFrame as a CSV file: {file_path}")
+        df.to_csv(file_path, index=False)
+
+    print(f"File saved at: {file_path}")
+    return file_path
+
+
+# Function to drop rows where all values in 'Ewltp (g/km)' are NaN
+def drop_rows_without_target(df, target='Ewltp (g/km)'):
+    """
+    Drops rows where values in the specified target column are NaN.
+
+    Parameters:
+    df (DataFrame): The DataFrame to operate on.
+    target (str): The column name to check for NaN values. Defaults to 'Ewltp (g/km)'.
+
+    Returns:
+    DataFrame: The modified DataFrame with rows dropped where the target column has NaN values.
+    """
+    df.dropna(subset=[target], inplace=True)
+    return df
+
+# Define function for columns dropping
+def drop_irrelevant_columns(df, columns_to_drop):
+    """
+    Drops irrelevant columns from the given DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame from which to drop columns.
+    columns_to_drop (list): List of columns to drop from the DataFrame.
+
+    Returns:
+    pd.DataFrame: The updated DataFrame with specified columns removed.
+    """
+    # Filter only the columns that exist in the DataFrame
+    existing_columns_to_drop = [col for col in columns_to_drop if col in df.columns]
+
+    # Drop the existing columns
+    if existing_columns_to_drop:
+        df.drop(existing_columns_to_drop, axis=1, inplace=True)
+        print(f"Dropped columns: {existing_columns_to_drop}")
+    else:
+        print("No columns to drop were found in the DataFrame.")
+
+    # Display the updated DataFrame
+    print(df.columns)
+    return df
+
+# Function to identify electric cars and replace nans in column electric capacity and range with 0
+def process_electric_car_data(df, replace_nan=True, make_electric_car_column=True):
+    """
+    Processes the electric car data by optionally creating a Non_Electric_Car column
+    and filling NaN values in Electric range and z (Wh/km) columns.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame containing car data.
+    replace_nan (bool): Whether to fill NaN values in Electric range and z columns. Default is True.
+    make_electric_car_column (bool): Whether to create the Non_Electric_Car column. Default is True.
+
+    Returns:
+    pd.DataFrame: The updated DataFrame with the new column and/or filled NaN values.
+    """
+    if make_electric_car_column:
+        # Create the Non_Electric_Car column: 1 if both Electric range and z are NaN, otherwise 0
+        df['Non_Electric_Car'] = (df['Electric range (km)'].isna() & df['z (Wh/km)'].isna()).astype(int)
+
+    if replace_nan:
+        # Fill NaN values in Electric range (km) and z (Wh/km) with 0
+        df['Electric range (km)'].fillna(0, inplace=True)
+        df['z (Wh/km)'].fillna(0, inplace=True)
+
+    return df
+
+# Function to select only certain years 
+def filter_dataframe_by_year(df, year=2018):
+    """
+    Filters the DataFrame by removing rows with a 'Year' less than the specified year.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to be filtered.
+    year (int, optional): The year threshold for filtering. Default is 2018.
+
+    Returns:
+    pd.DataFrame: The filtered DataFrame with rows removed based on the year.
+    """
+    # Check if the column is named 'Year' or 'year'
+    if 'Year' in df.columns:
+        year_column = 'Year'
+    elif 'year' in df.columns:
+        year_column = 'year'
+    else:
+        raise ValueError("The DataFrame must have a 'Year' or 'year' column.")
+
+    # Prompt the user for a year if year is not provided
+    if year is None:
+        year_input = input("Please enter a year (default is 2018): ")
+        year = int(year_input) if year_input else 2018
+
+    # Remove rows where the 'Year' or 'year' column is less than the specified year
+    df = df[df[year_column] >= year]
+
+    return df
+
+# Function to replace outliers with the median in Gaussian-distributed columns using the IQR method
+def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True):
+    """
+    Replaces outliers in the specified Gaussian-distributed columns with the median value of those columns.
+    Outliers are identified using the IQR method.
+
+    Parameters:
+    df (DataFrame): The DataFrame to operate on.
+    columns (list): The columns to check for outliers. If None, defaults to 'gaussian_cols'.
+    IQR_distance_multiplier (float): The multiplier for the IQR to define outliers. Default is 1.5.
+    apply_outlier_removal (bool): If True, applies the outlier replacement. If False, returns the original DataFrame.
+
+    Returns:
+    DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
+    """
+
+    # Check if outlier removal is enabled
+    if not apply_outlier_removal:
+        print("Outlier replacement not applied. Returning original DataFrame.")
+        return df  # Return the original DataFrame without modifications
+
+    # Use gaussian_cols as default if columns is None
+    if columns is None:
+        columns = gaussian_cols
+
+    # Calculate the first (Q1) and third (Q3) quartiles
+    Q1 = df[columns].quantile(0.25)
+    Q3 = df[columns].quantile(0.75)
+    IQR = Q3 - Q1  # Interquartile Range (IQR)
+
+    # Define the outlier condition based on IQR
+    outlier_condition = ((df[columns] < (Q1 - IQR_distance_multiplier * IQR)) |
+                         (df[columns] > (Q3 + IQR_distance_multiplier * IQR)))
+
+    # Replace outliers with the median of each column
+    for col in columns:
+        median_value = df[col].median()  # Get the median value of the column
+        df.loc[outlier_condition[col], col] = median_value  # Replace outliers with the median
+
+    print(f"DataFrame shape after replacing outliers in Gaussian columns: {df.shape}")
+
+    return df
+
+# Function to remove outliers from non-Gaussian distributed columns using the IQR method for individual rows
+def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True):
+    """
+    Removes outliers in specified non-Gaussian distributed columns using the IQR method for individual rows.
+    Outliers are capped to the lower and upper bounds defined by the IQR.
+
+    Parameters:
+    df (DataFrame): The DataFrame to operate on.
+    columns (list): The columns to check for outliers. If None, defaults to 'non_gaussian_cols'.
+    IQR_distance_multiplier (float): The multiplier for the IQR to define outliers. Default is 1.5.
+    apply_outlier_removal (bool): If True, applies the outlier removal process. If False, returns the original DataFrame.
+
+    Returns:
+    DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
+    """
+    # Check if outlier removal is enabled
+    if not apply_outlier_removal:
+        print("Outlier removal not applied. Returning original DataFrame.")
+        return df  # Return the original DataFrame without modifications
+
+    if columns is None:
+        columns = non_gaussian_cols  # Use 'non_gaussian_cols' if no columns are specified
+
+    outliers_removed = df.copy()  # Create a copy of the DataFrame to store results
+
+    # Loop through each column to remove outliers only for specific rows
+    for col in columns:
+        # Calculate the first (Q1) and third (Q3) quartiles
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1  # Interquartile Range (IQR)
+
+        # Define the lower and upper bounds for outliers
+        lower_bound = Q1 - IQR_distance_multiplier * IQR
+        upper_bound = Q3 + IQR_distance_multiplier * IQR
+
+        # Cap values only where they are outliers
+        outliers_removed[col] = np.where(df[col] < lower_bound, lower_bound,
+                                         np.where(df[col] > upper_bound, upper_bound, df[col]))
+
+    # Print the shape of the DataFrame after capping outliers
+    print(f"DataFrame shape after capping outliers in non-Gaussian columns: {outliers_removed.shape}")
+
+    return outliers_removed  # Return the modified DataFrame
