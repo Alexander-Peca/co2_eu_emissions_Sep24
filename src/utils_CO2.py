@@ -1131,7 +1131,7 @@ def encode_top_its(df, n=0):
     """
     One-hot encodes the top 'n' most common IT codes across all columns that start with 'IT_'.
     If n=0, encodes all IT codes.
-    Returns the modified DataFrame with one-hot encoded columns added.
+    Returns the modified DataFrame with one-hot encoded columns added and original 'IT_' columns removed.
     """
     if n == 0:
         print("Encoding all IT codes...")
@@ -1171,8 +1171,8 @@ def encode_top_its(df, n=0):
     # One-hot encode the IT codes
     it_code_dummies = pd.get_dummies(it_codes_filtered, prefix='IT_code')
     
-    # Sum the one-hot encodings for each original row
-    it_code_dummies = it_code_dummies.groupby(it_code_dummies.index).sum()
+    # Ensure binary values by using 'any' instead of 'sum'
+    it_code_dummies = it_code_dummies.groupby(it_code_dummies.index).any().astype(int)
     print(f"Shape of the one-hot encoded IT code DataFrame: {it_code_dummies.shape}")
     
     # Reindex the dummy DataFrame to match df
@@ -1188,5 +1188,71 @@ def encode_top_its(df, n=0):
     df = pd.concat([df, it_code_dummies], axis=1)
     print("One-hot encoding completed.\n")
     
+    # Drop original 'IT_' columns
+    df.drop(columns=it_code_columns, inplace=True)
+    print(f"Original IT code columns {it_code_columns} removed after encoding.\n")
+    
     return df
+
+
+def encode_categorical_columns(df, exclude_prefix='IT_', n=0):
+    """
+    One-hot encodes the top 'n' most common values across all categorical columns in the DataFrame.
+    If n=0, encodes all unique values. Excludes columns starting with 'exclude_prefix'.
+    Returns the modified DataFrame with one-hot encoded columns added and original categorical columns removed.
+    """
+    # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
+    cat_columns = [col for col in df.select_dtypes(include='category').columns if not col.startswith(exclude_prefix)]
+    print(f"Identified categorical columns to encode (excluding '{exclude_prefix}'): {cat_columns}")
+    
+    if not cat_columns:
+        print("No categorical columns found for encoding. Skipping one-hot encoding.")
+        return df
+    
+    # Iterate through each categorical column for one-hot encoding
+    for col in cat_columns:
+        print(f"\nEncoding column: {col}")
+        
+        # Count the unique values in the column
+        col_value_counts = df[col].value_counts()
+        
+        # Identify top 'n' most common values or all if n==0
+        if n == 0:
+            top_values = col_value_counts.index.tolist()
+            print(f"Total unique values to encode in '{col}': {len(top_values)}")
+        else:
+            top_values = col_value_counts.head(n).index.tolist()
+            print(f"Top {n} values in '{col}': {top_values}")
+        
+        # Filter the column to include only the selected top values
+        col_filtered = df[col].where(df[col].isin(top_values), other=None)
+        
+        if col_filtered.dropna().empty:
+            print(f"No valid entries in '{col}' after filtering. Skipping this column.")
+            continue
+        
+        # One-hot encode the filtered column
+        col_dummies = pd.get_dummies(col_filtered, prefix=col)
+        
+        # Ensure binary values by using 'any' instead of 'sum'
+        col_dummies = col_dummies.groupby(col_dummies.index).any().astype(int)
+        print(f"Shape of the one-hot encoded DataFrame for '{col}': {col_dummies.shape}")
+        
+        # Remove existing one-hot encoded columns if they exist to avoid duplication
+        existing_dummy_columns = [dummy_col for dummy_col in col_dummies.columns if dummy_col in df.columns]
+        if existing_dummy_columns:
+            print(f"Existing one-hot encoded columns detected for '{col}': {existing_dummy_columns}. Dropping them to reinitialize.")
+            df.drop(columns=existing_dummy_columns, inplace=True)
+        
+        # Concatenate the one-hot encoded columns with df
+        df = pd.concat([df, col_dummies], axis=1)
+        print(f"One-hot encoding completed for column '{col}'.")
+    
+    # Drop the original categorical columns
+    df.drop(columns=cat_columns, inplace=True)
+    print(f"Original categorical columns {cat_columns} removed after encoding.\n")
+    
+    return df
+
+
 
