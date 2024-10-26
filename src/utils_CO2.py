@@ -363,21 +363,24 @@ def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_
 
 
 # Generate categories lists and functions to choose
-def generate_category_lists(df, max_categories=20, min_cat_percent=10):
+def generate_category_lists(df, max_categories=20, min_cat_percent=10, top_n=10):
     """
     Generates summaries of categories for specified columns and provides
     pre-filled `filter_categories` and `retain_top_n_ITs` function calls for easy integration.
 
     The output is formatted with comments and code snippets that can be
-    directly copied into your codebase. You only need to manually delete
-    the category names you want to exclude from the `categories_to_keep` list or adjust the `top_n` and `min_cat_percent` parameters.
+    directly copied into your codebase. You can adjust the `top_n` and `min_cat_percent`
+    parameters, and manually delete or modify the categories in the `categories_to_keep` list.
 
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the categorical columns.
     - max_categories (int, default=20): Maximum number of categories to display 
       based on value counts for columns with high cardinality.
-    - min_cat_percent (float, default=10): Minimum percentage threshold for category frequency.
+    - min_cat_percent (float, default=10): Default value for `min_cat_percent` parameter in the printed function calls. 
+      The minimum percentage threshold for category frequency.
       Categories occurring less than this percentage of total rows will be considered 'Other' or dropped.
+    - top_n (int, default=10): Default value for `top_n` parameter in the printed function calls.
+      Categories with the top_n highest value_counts will be selected.
 
     Returns:
     - None: Prints the summaries and function calls to the console.
@@ -396,29 +399,31 @@ def generate_category_lists(df, max_categories=20, min_cat_percent=10):
         
         # Determine if the column has more unique categories than max_categories
         num_unique = df[col].nunique(dropna=True)
+        total_rows = len(df)
+        value_counts = df[col].value_counts()
+        
         if num_unique > max_categories:
-            value_counts = df[col].value_counts().nlargest(max_categories)
+            top_categories = value_counts.nlargest(max_categories)
             print(f"# For variable '{col}', the top {max_categories} categories are displayed based on their value_counts:")
         else:
-            value_counts = df[col].value_counts()
+            top_categories = value_counts
             print(f"# For variable '{col}', these are the categories available and their respective value_counts:")
         
         # Prepare value counts string
-        value_counts_str = ', '.join([f"'{cat}': {count}" for cat, count in value_counts.items()])
+        value_counts_str = ', '.join([f"'{cat}': {count}" for cat, count in top_categories.items()])
         
         # Prepare list of categories as string
-        categories_list_str = ', '.join([f"'{cat}'" for cat in value_counts.index])
+        categories_list_str = ', '.join([f"'{cat}'" for cat in top_categories.index])
         
         # Print the summaries as comments
         print(f"# {value_counts_str}")
-        print("# Please choose which categories to include:")
+        print("# Please choose which categories to include or adjust the 'top_n' and 'min_cat_percent' parameters.")
         print(f"# [{categories_list_str}]")
-        # Add the note about the behavior when both top_n and categories_to_keep are provided
+        # Add notes about the parameters
         print("# Note: If both `top_n` and `categories_to_keep` are provided, `categories_to_keep` will be ignored.")
-        # Add the note about the drop parameter
         print("# If drop = True, rows will be dropped; otherwise, they will be labeled as 'Other'.")
-        # Print the pre-filled filter_categories function call including min_cat_percent
-        print(f"df = filter_categories(df, '{col}', drop=False, top_n=None, categories_to_keep=[{categories_list_str}], min_cat_percent={min_cat_percent})")
+        # Print the pre-filled filter_categories function call including top_n and min_cat_percent
+        print(f"df = filter_categories(df, '{col}', drop=False, top_n={top_n}, categories_to_keep=[{categories_list_str}], other_label='Other', min_cat_percent={min_cat_percent})")
         print()  # Add an empty line for better readability
         
     # Handle IT columns separately
@@ -429,27 +434,32 @@ def generate_category_lists(df, max_categories=20, min_cat_percent=10):
         print(f"# Handling IT columns: {IT_present}")
         print("# Aggregating IT codes across IT_1 to IT_5 and listing the top categories:")
         
-        # Concatenate all IT columns to compute global top_n
+        # Concatenate all IT columns to compute global counts
         combined_ITs = pd.concat([df[col] for col in IT_present], axis=0, ignore_index=True).dropna()
-        IT_value_counts = combined_ITs.value_counts().nlargest(max_categories)
+        total_IT_entries = len(combined_ITs)
+        IT_value_counts = combined_ITs.value_counts()
+        
+        # Get top IT categories based on max_categories
+        top_ITs = IT_value_counts.nlargest(max_categories)
         
         # Prepare IT value counts string
-        IT_value_counts_str = ', '.join([f"'{it}': {count}" for it, count in IT_value_counts.items()])
+        IT_value_counts_str = ', '.join([f"'{it}': {count}" for it, count in top_ITs.items()])
         
         # Prepare list of top ITs as string
-        IT_list_str = ', '.join([f"'{it}'" for it in IT_value_counts.index])
+        IT_list_str = ', '.join([f"'{it}'" for it in top_ITs.index])
         
         # Print IT categories summary as comments
         print(f"# {IT_value_counts_str}")
-        print("# Please choose the number of top ITs to retain and include in the retain_top_n_ITs function call.")
+        print("# Please choose the number of top ITs to retain and adjust the 'top_n' and 'min_cat_percent' parameters in the function call.")
         print(f"# Current top {max_categories} ITs:")
         print(f"# [{IT_list_str}]")
         
-        # Print the pre-filled retain_top_n_ITs function call including min_cat_percent
-        print(f"df = retain_top_n_ITs(df, top_n=10, IT_columns={IT_present}, other_label='Other', min_cat_percent={min_cat_percent})")
+        # Print the pre-filled retain_top_n_ITs function call including top_n and min_cat_percent
+        print(f"df = retain_top_n_ITs(df, top_n={top_n}, IT_columns={IT_present}, other_label='Other', min_cat_percent={min_cat_percent})")
         print()  # Add an empty line for better readability
     else:
         print("# No IT columns found in the DataFrame.")
+
 
         
 
@@ -917,7 +927,7 @@ def handle_nans(df, strategy_dict):
     Parameters:
     - df (pd.DataFrame): The input DataFrame.
     - strategy_dict (dict): A dictionary where keys are column names and values are strategies.
-        Strategies can be 'drop', 'mean', 'median', 'mode', or 'zero'.
+        Strategies can be 'drop', 'mean', 'median', 'mode', 'zero', or 'leave_as_nan'.
 
     Returns:
     - pd.DataFrame: The DataFrame with NaNs handled as specified.
@@ -929,23 +939,22 @@ def handle_nans(df, strategy_dict):
     if not isinstance(strategy_dict, dict):
         raise ValueError("strategy_dict must be a dictionary with column names as keys and strategies as values.")
     
-    # Separate drop strategies from fill strategies
-    drop_cols = [col for col, strategy in strategy_dict.items() if strategy == 'drop']
-    fill_cols = {col: strategy for col, strategy in strategy_dict.items() if strategy in ['mean', 'median', 'mode', 'zero']}
+    # Define valid strategies
+    valid_strategies = {'drop', 'mean', 'median', 'mode', 'zero', 'leave_as_nan'}
     
     # Check for invalid strategies
-    valid_strategies = {'drop', 'mean', 'median', 'mode', 'zero'}
     invalid = [ (col, strat) for col, strat in strategy_dict.items() if strat not in valid_strategies]
     if invalid:
         invalid_str = ', '.join([f"{col}: {strat}" for col, strat in invalid])
-        raise ValueError(f"Invalid strategies provided for columns: {invalid_str}. Valid strategies are 'drop', 'mean', 'median', 'mode', 'zero'.")
+        raise ValueError(f"Invalid strategies provided for columns: {invalid_str}. Valid strategies are 'drop', 'mean', 'median', 'mode', 'zero', 'leave_as_nan'.")
     
     # Check if all columns exist in the DataFrame
     missing_cols = [col for col in strategy_dict.keys() if col not in df.columns]
     if missing_cols:
         raise ValueError(f"The following columns are not in the DataFrame: {missing_cols}")
     
-    # Handle drop strategies
+    # Handle drop strategies first
+    drop_cols = [col for col, strategy in strategy_dict.items() if strategy == 'drop']
     if drop_cols:
         # Count NaNs in drop_cols before dropping
         na_counts_before = df[drop_cols].isna().sum()
@@ -959,9 +968,12 @@ def handle_nans(df, strategy_dict):
             print(f"Column '{col}': Dropped {rows_dropped[col]} row(s) containing NaN(s).")
         print()  # Add a newline for readability
     
-    # Handle fill strategies
-    for col, strategy in fill_cols.items():
-        # Count NaNs before filling
+    # Handle other strategies
+    for col, strategy in strategy_dict.items():
+        if strategy == 'drop':
+            continue  # Already handled drop strategies
+        
+        # Count NaNs before handling
         na_before = df[col].isna().sum()
         
         if strategy == 'mean':
@@ -982,7 +994,6 @@ def handle_nans(df, strategy_dict):
             # Mode can return multiple values; take the first one
             mode_series = df[col].mode()
             if mode_series.empty:
-                fill_value = None  # If mode is empty, set to None or some default
                 print(f"Column '{col}': No mode found. NaNs remain as NaN.")
             else:
                 fill_value = mode_series.iloc[0]
@@ -990,14 +1001,18 @@ def handle_nans(df, strategy_dict):
                 print(f"Column '{col}': Replaced {na_before} NaN(s) with mode ({fill_value}).")
         elif strategy == 'zero':
             if pd.api.types.is_numeric_dtype(df[col]):
-                fill_value = 0
-                df[col].fillna(fill_value, inplace=True)
+                df[col].fillna(0, inplace=True)
                 print(f"Column '{col}': Replaced {na_before} NaN(s) with zero (0).")
             else:
                 raise TypeError(f"Cannot use 'zero' strategy on non-numeric column '{col}'.")
-        
+        elif strategy == 'leave_as_nan':
+            # No action needed; NaNs are left as is
+            print(f"Column '{col}': Left {na_before} NaN(s) as is.")
+        else:
+            # This should not happen due to earlier validation
+            raise ValueError(f"Unhandled strategy '{strategy}' for column '{col}'.")
+    
     return df
-
 
 
 
