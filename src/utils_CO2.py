@@ -492,6 +492,35 @@ def load_data_local(file_name, file_path = data_path):
 
     return df
 
+
+# Define Loading data function for the local drive and dont output local path
+def load_data_local_anon(file_name, file_path = data_path):
+    """
+    Loads a parquet or csv file from the local directory.
+
+    Parameters:
+    file_name (str): The name of the file to load.
+    file_path (str): The path to the directory where the file is located.
+
+    Returns:
+    pd.DataFrame: The loaded data as a pandas DataFrame.
+    """
+    # Full file path
+    full_file_path = os.path.join(file_path, file_name)
+
+    # Check file extension and load accordingly
+    if file_name.endswith('.parquet'):
+        print(f"Loaded parquet file from local path.")
+        table = pq.read_table(full_file_path)
+        df = table.to_pandas()  # Convert to pandas DataFrame
+    elif file_name.endswith('.csv'):
+        print(f"Loaded csv file from local path.")
+        df = pd.read_csv(full_file_path)  # Read CSV into pandas DataFrame
+    else:
+        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
+
+    return df
+
 # dataset to be loaded must be in google-drive (shared: Project_CO2_DS/Data/EU Data)
 # Add a shortcut by clicking to the 3 dots (file_name) to the left, click "Organise"
 # click "Add shortcut", choose "My Drive" or another folder of your preferrence but
