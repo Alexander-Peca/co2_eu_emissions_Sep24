@@ -876,13 +876,15 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
 def generate_strategy_dict_code(df, default_strategy='drop', special_columns=None):
     """
     Generates a string of Python code that defines a strategy dictionary
-    with all DataFrame columns set to the specified default strategy,
+    with strategies for handling NaNs in each DataFrame column.
+    Columns starting with "IT_" will automatically have the strategy 'leave_as_nan'.
+    All other columns are set to the specified default strategy,
     excluding any special columns.
 
     Parameters:
     - df (pd.DataFrame): The input DataFrame.
     - default_strategy (str): The default strategy for handling NaNs. 
-                              Valid strategies include 'drop', 'mean', 'median', 'mode', 'zero'.
+                              Valid strategies include 'drop', 'mean', 'median', 'mode', 'zero', 'leave_as_nan'.
                               Defaults to 'drop'.
     - special_columns (list or None): List of columns with special handling.
                                       These columns will be excluded from the strategy dict.
@@ -891,7 +893,7 @@ def generate_strategy_dict_code(df, default_strategy='drop', special_columns=Non
     - str: A formatted string representing the strategy dictionary with comments.
     """
     # Start the dictionary string
-    dict_lines = ["strategy = {"]
+    dict_lines = ["nan_handling_strategy = {"]
 
     # Exclude special columns if provided
     if special_columns is None:
@@ -900,8 +902,12 @@ def generate_strategy_dict_code(df, default_strategy='drop', special_columns=Non
     for col in df.columns:
         if col in special_columns:
             continue  # Skip special columns
+        if col.startswith('IT_'):
+            strategy = 'leave_as_nan'
+        else:
+            strategy = default_strategy
         # Use repr to handle any special characters in column names
-        dict_lines.append(f"    {repr(col)}: '{default_strategy}',")
+        dict_lines.append(f"    {repr(col)}: '{strategy}',")
     
     # Close the dictionary
     dict_lines.append("}")
@@ -915,6 +921,7 @@ def generate_strategy_dict_code(df, default_strategy='drop', special_columns=Non
     strategy_code = "\n".join(dict_lines)
     
     return strategy_code
+
 
 
 # Handle NaNs
@@ -1090,3 +1097,95 @@ def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mea
 
 
 
+def count_unique_tacs(df):
+    """
+    Counts the unique TACs across all columns that start with 'IT_'.
+    Returns a pandas Series with TACs as index and their counts as values.
+    """
+    print("Counting unique TACs across all IT columns...")
+    
+    # Dynamically identify TAC columns that start with 'IT_'
+    tac_columns = [col for col in df.columns if col.startswith('IT_')]
+    print(f"Identified TAC columns: {tac_columns}")
+    
+    if not tac_columns:
+        print("No TAC columns found starting with 'IT_'. Returning empty Series.")
+        return pd.Series(dtype=int)
+    
+    # Concatenate the TAC columns into a single Series
+    combined_tacs = pd.concat([df[col] for col in tac_columns], axis=0, ignore_index=True)
+    
+    # Drop NaN values
+    combined_tacs = combined_tacs.dropna()
+    
+    # Count the unique TACs
+    tac_counts = combined_tacs.value_counts()
+    
+    print(f"Total unique TACs found: {tac_counts.shape[0]}")
+    print(f"Top 10 most common TACs:\n{tac_counts.head(10)}\n")
+    
+    return tac_counts
+
+
+def encode_top_its(df, n=0):
+    """
+    One-hot encodes the top 'n' most common TACs across all columns that start with 'IT_'.
+    If n=0, encodes all TACs.
+    Returns the modified DataFrame with one-hot encoded columns added.
+    """
+    if n == 0:
+        print("Encoding all TACs...")
+    else:
+        print(f"Identifying Top {n} TACs for one-hot encoding...")
+    
+    # Step 1: Count the unique TACs
+    tac_counts = count_unique_tacs(df)
+    
+    # Step 2: Identify Top n Most Common TACs, or all if n==0
+    if n == 0:
+        top_tacs = tac_counts.index.tolist()
+        print(f"Total TACs to encode: {len(top_tacs)}\n")
+    else:
+        top_tacs = tac_counts.head(n).index.tolist()
+        print(f"Top {n} TACs: {top_tacs}\n")
+    
+    # Dynamically identify TAC columns that start with 'IT_'
+    tac_columns = [col for col in df.columns if col.startswith('IT_')]
+    print(f"Identified TAC columns: {tac_columns}")
+    
+    if not tac_columns:
+        print("No TAC columns found starting with 'IT_'. Skipping one-hot encoding.")
+        return df
+    
+    # Stack the IT columns into a single Series
+    it_combined = df[tac_columns].stack().reset_index(level=1, drop=True)
+    
+    # Filter the Series to include only the selected TACs
+    it_combined_topn = it_combined[it_combined.isin(top_tacs)]
+    print(f"Total TAC entries after stacking and filtering: {it_combined_topn.shape[0]}")
+    
+    if it_combined_topn.empty:
+        print("No TAC entries to encode after filtering. Skipping one-hot encoding.")
+        return df
+    
+    # One-hot encode the TACs
+    it_dummies = pd.get_dummies(it_combined_topn, prefix='TAC')
+    
+    # Sum the one-hot encodings for each original row
+    it_dummies = it_dummies.groupby(it_dummies.index).sum()
+    print(f"Shape of the one-hot encoded TAC DataFrame: {it_dummies.shape}")
+    
+    # Reindex the dummy DataFrame to match df
+    it_dummies = it_dummies.reindex(df.index, fill_value=0)
+    
+    # Remove existing one-hot encoded TAC columns if they exist to avoid duplication
+    existing_dummy_columns = [col for col in it_dummies.columns if col in df.columns]
+    if existing_dummy_columns:
+        print(f"Existing one-hot encoded TAC columns detected: {existing_dummy_columns}. Dropping them to reinitialize.")
+        df.drop(columns=existing_dummy_columns, inplace=True)
+    
+    # Concatenate the one-hot encoded TACs with df
+    df = pd.concat([df, it_dummies], axis=1)
+    print("One-hot encoding completed.\n")
+    
+    return df
