@@ -1097,95 +1097,96 @@ def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mea
 
 
 
-def count_unique_tacs(df):
+def count_unique_it_codes(df):
     """
-    Counts the unique TACs across all columns that start with 'IT_'.
-    Returns a pandas Series with TACs as index and their counts as values.
+    Counts the unique IT codes across all columns that start with 'IT_'.
+    Returns a pandas Series with IT codes as index and their counts as values.
     """
-    print("Counting unique TACs across all IT columns...")
+    print("Counting unique IT codes across all IT columns...")
     
-    # Dynamically identify TAC columns that start with 'IT_'
-    tac_columns = [col for col in df.columns if col.startswith('IT_')]
-    print(f"Identified TAC columns: {tac_columns}")
+    # Dynamically identify IT code columns that start with 'IT_'
+    it_code_columns = [col for col in df.columns if col.startswith('IT_')]
+    print(f"Identified IT code columns: {it_code_columns}")
     
-    if not tac_columns:
-        print("No TAC columns found starting with 'IT_'. Returning empty Series.")
+    if not it_code_columns:
+        print("No IT code columns found starting with 'IT_'. Returning empty Series.")
         return pd.Series(dtype=int)
     
-    # Concatenate the TAC columns into a single Series
-    combined_tacs = pd.concat([df[col] for col in tac_columns], axis=0, ignore_index=True)
+    # Concatenate the IT code columns into a single Series
+    combined_it_codes = pd.concat([df[col] for col in it_code_columns], axis=0, ignore_index=True)
     
     # Drop NaN values
-    combined_tacs = combined_tacs.dropna()
+    combined_it_codes = combined_it_codes.dropna()
     
-    # Count the unique TACs
-    tac_counts = combined_tacs.value_counts()
+    # Count the unique IT codes
+    it_code_counts = combined_it_codes.value_counts()
     
-    print(f"Total unique TACs found: {tac_counts.shape[0]}")
-    print(f"Top 10 most common TACs:\n{tac_counts.head(10)}\n")
+    print(f"Total unique IT codes found: {it_code_counts.shape[0]}")
+    print(f"Top 10 most common IT codes:\n{it_code_counts.head(10)}\n")
     
-    return tac_counts
+    return it_code_counts
 
 
 def encode_top_its(df, n=0):
     """
-    One-hot encodes the top 'n' most common TACs across all columns that start with 'IT_'.
-    If n=0, encodes all TACs.
+    One-hot encodes the top 'n' most common IT codes across all columns that start with 'IT_'.
+    If n=0, encodes all IT codes.
     Returns the modified DataFrame with one-hot encoded columns added.
     """
     if n == 0:
-        print("Encoding all TACs...")
+        print("Encoding all IT codes...")
     else:
-        print(f"Identifying Top {n} TACs for one-hot encoding...")
+        print(f"Identifying Top {n} IT codes for one-hot encoding...")
     
-    # Step 1: Count the unique TACs
-    tac_counts = count_unique_tacs(df)
+    # Step 1: Count the unique IT codes
+    it_code_counts = count_unique_it_codes(df)
     
-    # Step 2: Identify Top n Most Common TACs, or all if n==0
+    # Step 2: Identify Top n Most Common IT codes, or all if n==0
     if n == 0:
-        top_tacs = tac_counts.index.tolist()
-        print(f"Total TACs to encode: {len(top_tacs)}\n")
+        top_it_codes = it_code_counts.index.tolist()
+        print(f"Total IT codes to encode: {len(top_it_codes)}\n")
     else:
-        top_tacs = tac_counts.head(n).index.tolist()
-        print(f"Top {n} TACs: {top_tacs}\n")
+        top_it_codes = it_code_counts.head(n).index.tolist()
+        print(f"Top {n} IT codes: {top_it_codes}\n")
     
-    # Dynamically identify TAC columns that start with 'IT_'
-    tac_columns = [col for col in df.columns if col.startswith('IT_')]
-    print(f"Identified TAC columns: {tac_columns}")
+    # Dynamically identify IT code columns that start with 'IT_'
+    it_code_columns = [col for col in df.columns if col.startswith('IT_')]
+    print(f"Identified IT code columns: {it_code_columns}")
     
-    if not tac_columns:
-        print("No TAC columns found starting with 'IT_'. Skipping one-hot encoding.")
+    if not it_code_columns:
+        print("No IT code columns found starting with 'IT_'. Skipping one-hot encoding.")
         return df
     
-    # Stack the IT columns into a single Series
-    it_combined = df[tac_columns].stack().reset_index(level=1, drop=True)
+    # Stack the IT code columns into a single Series
+    it_combined = df[it_code_columns].stack().reset_index(level=1, drop=True)
     
-    # Filter the Series to include only the selected TACs
-    it_combined_topn = it_combined[it_combined.isin(top_tacs)]
-    print(f"Total TAC entries after stacking and filtering: {it_combined_topn.shape[0]}")
+    # Filter the Series to include only the selected IT codes
+    it_codes_filtered = it_combined[it_combined.isin(top_it_codes)]
+    print(f"Total IT code entries after stacking and filtering: {it_codes_filtered.shape[0]}")
     
-    if it_combined_topn.empty:
-        print("No TAC entries to encode after filtering. Skipping one-hot encoding.")
+    if it_codes_filtered.empty:
+        print("No IT code entries to encode after filtering. Skipping one-hot encoding.")
         return df
     
-    # One-hot encode the TACs
-    it_dummies = pd.get_dummies(it_combined_topn, prefix='TAC')
+    # One-hot encode the IT codes
+    it_code_dummies = pd.get_dummies(it_codes_filtered, prefix='IT_code')
     
     # Sum the one-hot encodings for each original row
-    it_dummies = it_dummies.groupby(it_dummies.index).sum()
-    print(f"Shape of the one-hot encoded TAC DataFrame: {it_dummies.shape}")
+    it_code_dummies = it_code_dummies.groupby(it_code_dummies.index).sum()
+    print(f"Shape of the one-hot encoded IT code DataFrame: {it_code_dummies.shape}")
     
     # Reindex the dummy DataFrame to match df
-    it_dummies = it_dummies.reindex(df.index, fill_value=0)
+    it_code_dummies = it_code_dummies.reindex(df.index, fill_value=0)
     
-    # Remove existing one-hot encoded TAC columns if they exist to avoid duplication
-    existing_dummy_columns = [col for col in it_dummies.columns if col in df.columns]
+    # Remove existing one-hot encoded IT code columns if they exist to avoid duplication
+    existing_dummy_columns = [col for col in it_code_dummies.columns if col in df.columns]
     if existing_dummy_columns:
-        print(f"Existing one-hot encoded TAC columns detected: {existing_dummy_columns}. Dropping them to reinitialize.")
+        print(f"Existing one-hot encoded IT code columns detected: {existing_dummy_columns}. Dropping them to reinitialize.")
         df.drop(columns=existing_dummy_columns, inplace=True)
     
-    # Concatenate the one-hot encoded TACs with df
-    df = pd.concat([df, it_dummies], axis=1)
+    # Concatenate the one-hot encoded IT codes with df
+    df = pd.concat([df, it_code_dummies], axis=1)
     print("One-hot encoding completed.\n")
     
     return df
+
