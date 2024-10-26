@@ -206,37 +206,49 @@ def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=Non
     - pd.DataFrame: DataFrame with updated categorical column.
     
     Notes:
-    - If both `top_n` and `categories_to_keep` are provided, `categories_to_keep` will be ignored, and only `top_n` will be used.
+    - If both top_n and categories_to_keep are provided, categories_to_keep will be ignored, and only top_n will be used.
     
     Raises:
-    - ValueError: If neither `top_n` nor `categories_to_keep` is provided.
+    - ValueError: If neither top_n nor categories_to_keep is provided.
     """
+    initial_row_count = len(df)
+    
     if top_n is not None:
         # Ignore categories_to_keep if top_n is provided
         top_categories = df[column].value_counts().nlargest(top_n).index
         if drop:
-            df = df[df[column].isin(top_categories)]
+            df = df[df[column].isin(top_categories) | df[column].isna()]
+            rows_dropped = initial_row_count - len(df)
+            print(f"Dropped {rows_dropped} rows where '{column}' is not in the top {top_n} categories.")
         else:
             if pd.api.types.is_categorical_dtype(df[column]):
                 # Add 'Other' to categories if not present
                 if other_label not in df[column].cat.categories:
                     df[column] = df[column].cat.add_categories([other_label])
-            df[column] = df[column].where(df[column].isin(top_categories), other_label)
+            mask = ~(df[column].isin(top_categories) | df[column].isna())
+            num_replaced = mask.sum()
+            df.loc[mask, column] = other_label
+            print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in top {top_n} categories.")
     elif categories_to_keep is not None:
         if drop:
-            df = df[df[column].isin(categories_to_keep)]
+            df = df[df[column].isin(categories_to_keep) | df[column].isna()]
+            rows_dropped = initial_row_count - len(df)
+            print(f"Dropped {rows_dropped} rows where '{column}' is not in the specified categories to keep.")
         else:
             if pd.api.types.is_categorical_dtype(df[column]):
                 # Add 'Other' to categories if not present
                 if other_label not in df[column].cat.categories:
                     df[column] = df[column].cat.add_categories([other_label])
-            df[column] = df[column].where(df[column].isin(categories_to_keep), other_label)
+            mask = ~(df[column].isin(categories_to_keep) | df[column].isna())
+            num_replaced = mask.sum()
+            df.loc[mask, column] = other_label
+            print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in specified categories to keep.")
     else:
         raise ValueError("Either top_n or categories_to_keep must be provided.")
     
-    print(f"Column {column} has been processed.")
-    
     return df
+
+
 
 
 
@@ -316,7 +328,11 @@ def generate_category_lists(df, max_categories=20):
     - None: Prints the summaries and function calls to the console.
     """
     # Define the regular categorical columns to process
-    categorical_columns = ['Ct', 'Cr', 'Fm', 'Ft', 'Country', 'Mp', 'Mh']
+    # Identify categorical columns, excluding those starting with "IT_"
+    categorical_columns = [
+        col for col in df.select_dtypes(include=['category', 'object']).columns
+        if not col.startswith("IT_")
+    ]
     
     for col in categorical_columns:
         if col not in df.columns:
@@ -379,7 +395,8 @@ def generate_category_lists(df, max_categories=20):
         print()  # Add an empty line for better readability
     else:
         print("# No IT columns found in the DataFrame.")
-
+        
+        
 
 # Define Loading data function for the local drive
 def load_data_local(file_name, file_path = data_path):
@@ -601,7 +618,7 @@ def drop_irrelevant_columns(df, columns_to_drop):
     return df
 
 # Function to identify electric cars and replace nans in column electric capacity and range with 0
-def process_electric_car_data(df, replace_nan=True, make_electric_car_column=True):
+def process_electric_car_data(df, replace_nan=False, make_electric_car_column=True):
     """
     Processes the electric car data by optionally creating a Non_Electric_Car column
     and filling NaN values in Electric range and z (Wh/km) columns.
@@ -616,7 +633,7 @@ def process_electric_car_data(df, replace_nan=True, make_electric_car_column=Tru
     """
     if make_electric_car_column:
         # Create the Non_Electric_Car column: 1 if both Electric range and z are NaN, otherwise 0
-        df['Non_Electric_Car'] = (df['Electric range (km)'].isna() & df['z (Wh/km)'].isna()).astype(int)
+        df['Non_Electric_Car'] = (df['Electric range (km)'].isna() & df['z (Wh/km)'].isna()).astype(str).astype('category')
 
     if replace_nan:
         # Fill NaN values in Electric range (km) and z (Wh/km) with 0
@@ -788,3 +805,218 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     print(f"DataFrame shape after capping outliers in non-Gaussian columns: {outliers_removed.shape}")
 
     return outliers_removed  # Return the modified DataFrame
+
+
+# Generate Dictionary for handling NaNs
+def generate_strategy_dict_code(df, default_strategy='drop', special_columns=None):
+    """
+    Generates a string of Python code that defines a strategy dictionary
+    with all DataFrame columns set to the specified default strategy,
+    excluding any special columns.
+
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+    - default_strategy (str): The default strategy for handling NaNs. 
+                              Valid strategies include 'drop', 'mean', 'median', 'mode', 'zero'.
+                              Defaults to 'drop'.
+    - special_columns (list or None): List of columns with special handling.
+                                      These columns will be excluded from the strategy dict.
+
+    Returns:
+    - str: A formatted string representing the strategy dictionary with comments.
+    """
+    # Start the dictionary string
+    dict_lines = ["strategy = {"]
+
+    # Exclude special columns if provided
+    if special_columns is None:
+        special_columns = []
+    
+    for col in df.columns:
+        if col in special_columns:
+            continue  # Skip special columns
+        # Use repr to handle any special characters in column names
+        dict_lines.append(f"    {repr(col)}: '{default_strategy}',")
+    
+    # Close the dictionary
+    dict_lines.append("}")
+    
+    # Add a comment about special columns
+    if special_columns:
+        comment = f"# Note: The following columns are handled specially and are excluded from this strategy dict: {special_columns}"
+        dict_lines.insert(0, comment)
+    
+    # Join all lines into a single string with line breaks
+    strategy_code = "\n".join(dict_lines)
+    
+    return strategy_code
+
+
+# Handle NaNs
+import pandas as pd
+
+def handle_nans(df, strategy_dict):
+    """
+    Handle NaNs in a DataFrame based on specified strategies per column.
+
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+    - strategy_dict (dict): A dictionary where keys are column names and values are strategies.
+        Strategies can be 'drop', 'mean', 'median', 'mode', or 'zero'.
+
+    Returns:
+    - pd.DataFrame: The DataFrame with NaNs handled as specified.
+    """
+    # Make a copy to avoid modifying the original DataFrame
+    df = df.copy()
+    
+    # Validate input
+    if not isinstance(strategy_dict, dict):
+        raise ValueError("strategy_dict must be a dictionary with column names as keys and strategies as values.")
+    
+    # Separate drop strategies from fill strategies
+    drop_cols = [col for col, strategy in strategy_dict.items() if strategy == 'drop']
+    fill_cols = {col: strategy for col, strategy in strategy_dict.items() if strategy in ['mean', 'median', 'mode', 'zero']}
+    
+    # Check for invalid strategies
+    valid_strategies = {'drop', 'mean', 'median', 'mode', 'zero'}
+    invalid = [ (col, strat) for col, strat in strategy_dict.items() if strat not in valid_strategies]
+    if invalid:
+        invalid_str = ', '.join([f"{col}: {strat}" for col, strat in invalid])
+        raise ValueError(f"Invalid strategies provided for columns: {invalid_str}. Valid strategies are 'drop', 'mean', 'median', 'mode', 'zero'.")
+    
+    # Check if all columns exist in the DataFrame
+    missing_cols = [col for col in strategy_dict.keys() if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"The following columns are not in the DataFrame: {missing_cols}")
+    
+    # Handle drop strategies
+    if drop_cols:
+        # Count NaNs in drop_cols before dropping
+        na_counts_before = df[drop_cols].isna().sum()
+        # Drop rows with NaNs in any of the drop_cols
+        df = df.dropna(subset=drop_cols)
+        # Count NaNs in drop_cols after dropping
+        na_counts_after = df[drop_cols].isna().sum()
+        # Calculate number of rows dropped per column
+        rows_dropped = na_counts_before - na_counts_after
+        for col in drop_cols:
+            print(f"Column '{col}': Dropped {rows_dropped[col]} row(s) containing NaN(s).")
+        print()  # Add a newline for readability
+    
+    # Handle fill strategies
+    for col, strategy in fill_cols.items():
+        # Count NaNs before filling
+        na_before = df[col].isna().sum()
+        
+        if strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].mean()
+                df[col].fillna(fill_value, inplace=True)
+                print(f"Column '{col}': Replaced {na_before} NaN(s) with mean ({fill_value}).")
+            else:
+                raise TypeError(f"Cannot use 'mean' strategy on non-numeric column '{col}'.")
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].median()
+                df[col].fillna(fill_value, inplace=True)
+                print(f"Column '{col}': Replaced {na_before} NaN(s) with median ({fill_value}).")
+            else:
+                raise TypeError(f"Cannot use 'median' strategy on non-numeric column '{col}'.")
+        elif strategy == 'mode':
+            # Mode can return multiple values; take the first one
+            mode_series = df[col].mode()
+            if mode_series.empty:
+                fill_value = None  # If mode is empty, set to None or some default
+                print(f"Column '{col}': No mode found. NaNs remain as NaN.")
+            else:
+                fill_value = mode_series.iloc[0]
+                df[col].fillna(fill_value, inplace=True)
+                print(f"Column '{col}': Replaced {na_before} NaN(s) with mode ({fill_value}).")
+        elif strategy == 'zero':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = 0
+                df[col].fillna(fill_value, inplace=True)
+                print(f"Column '{col}': Replaced {na_before} NaN(s) with zero (0).")
+            else:
+                raise TypeError(f"Cannot use 'zero' strategy on non-numeric column '{col}'.")
+        
+    return df
+
+
+
+
+# Handle NaNs in Erwltp and Ernedc
+import pandas as pd
+
+def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mean'):
+    """
+    Handles NaNs in target_columns based on the presence of values in it_columns.
+    
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+    - it_columns (list): List of columns (e.g., 'IT_1' to 'IT_5') to check for non-NaN values.
+    - target_columns (list): Columns (e.g., 'Erwltp (g/km)', 'Enedc (g/km)') to handle based on the IT columns.
+    - strategy (str): Strategy to replace NaNs in target_columns when IT columns have values.
+                      Must be either 'mean' or 'median'.
+    
+    Returns:
+    - df (pd.DataFrame): The DataFrame with special NaN handling applied.
+    """
+    # Validate strategy
+    if strategy not in ['mean', 'median']:
+        raise ValueError("Strategy must be either 'mean' or 'median'.")
+    
+    # Make a copy to avoid modifying the original DataFrame
+    df = df.copy()
+    
+    # Initialize the replacement counts dictionary
+    replacement_counts = {
+        'IT_present': {col: 0 for col in target_columns},
+        'IT_absent': {col: 0 for col in target_columns}
+    }
+    
+    # Check if all IT columns exist
+    missing_it_cols = [col for col in it_columns if col not in df.columns]
+    if missing_it_cols:
+        raise ValueError(f"The following IT columns are not in the DataFrame: {missing_it_cols}")
+    
+    # Check if target columns exist
+    missing_target_cols = [col for col in target_columns if col not in df.columns]
+    if missing_target_cols:
+        raise ValueError(f"The following target columns are not in the DataFrame: {missing_target_cols}")
+    
+    # Create boolean masks
+    it_any_not_nan = df[it_columns].notna().any(axis=1)
+    it_all_nan = df[it_columns].isna().all(axis=1)
+    
+    for target_col in target_columns:
+        # Calculate fill value based on the strategy
+        if strategy == 'mean':
+            fill_value = df.loc[it_any_not_nan, target_col].mean()
+            strategy_applied = 'mean'
+        elif strategy == 'median':
+            fill_value = df.loc[it_any_not_nan, target_col].median()
+            strategy_applied = 'median'
+        
+        # Identify NaNs to replace where IT is present
+        mask_IT_present = it_any_not_nan & df[target_col].isna()
+        count_IT_present = mask_IT_present.sum()
+        df.loc[mask_IT_present, target_col] = df.loc[mask_IT_present, target_col].fillna(fill_value)
+        replacement_counts['IT_present'][target_col] = count_IT_present
+        
+        # Identify NaNs to replace where IT is absent
+        mask_IT_absent = it_all_nan & df[target_col].isna()
+        count_IT_absent = mask_IT_absent.sum()
+        df.loc[mask_IT_absent, target_col] = df.loc[mask_IT_absent, target_col].fillna(0)
+        replacement_counts['IT_absent'][target_col] = count_IT_absent
+        
+        # Print replacement counts
+        print(f"Column '{target_col}':")
+        print(f"  - Replaced {count_IT_present} NaN(s) with {strategy_applied} ({fill_value}) where IT was present.")
+        print(f"  - Replaced {count_IT_absent} NaN(s) with 0 where IT was absent.\n")
+    
+    return df
+
+
+
