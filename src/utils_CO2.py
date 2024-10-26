@@ -189,119 +189,171 @@ def all_to_nan_and_cat(df, cols):
         
         
 # Filter categories        
-def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other'):
+def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other', min_cat_percent=10):
     """
-    Filter categories in a column based on top_n or an explicit list of categories to keep.
-    
+    Filter categories in a column based on top_n, an explicit list of categories to keep, and minimum category frequency.
+
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the categorical column.
     - column (str): The name of the categorical column.
-    - drop (bool, optional): If True, drop rows with categories not in categories_to_keep or top_n.
-                             If False, label them as 'Other'. Defaults to False.
+    - drop (bool, optional):
+        If True, drop rows with categories not in categories_to_keep or top_n,
+        or that occur less than min_cat_percent% of all rows.
+        If False, label them as 'Other'. Defaults to False.
     - top_n (int, optional): Number of top categories to keep based on frequency.
     - categories_to_keep (list, optional): List of categories to retain.
     - other_label (str, optional): Label for aggregated other categories. Defaults to 'Other'.
-    
+    - min_cat_percent (float, optional):
+        Minimum percentage threshold for category frequency.
+        Categories occurring less than this percentage of total rows will be considered 'Other' or dropped.
+        For example, 10 corresponds to 10%. Defaults to 10.
+
     Returns:
     - pd.DataFrame: DataFrame with updated categorical column.
-    
+
     Notes:
     - If both top_n and categories_to_keep are provided, categories_to_keep will be ignored, and only top_n will be used.
-    
+    - All categories that have a value count of less than min_cat_percent% of total rows (including NaN rows) will be replaced by other_label or dropped, depending on the drop parameter.
+    - If no categories meet the min_cat_percent threshold, all categories will be labeled as 'Other' or dropped.
+
     Raises:
     - ValueError: If neither top_n nor categories_to_keep is provided.
     """
+    import pandas as pd
+
     initial_row_count = len(df)
-    
+    total_rows = initial_row_count
+
     if top_n is not None:
         # Ignore categories_to_keep if top_n is provided
-        top_categories = df[column].value_counts().nlargest(top_n).index
-        if drop:
-            df = df[df[column].isin(top_categories) | df[column].isna()]
-            rows_dropped = initial_row_count - len(df)
-            print(f"Dropped {rows_dropped} rows where '{column}' is not in the top {top_n} categories.")
+        category_counts = df[column].value_counts(dropna=False)
+        min_count = (min_cat_percent / 100) * total_rows
+
+        # Determine top_n categories that meet the min_cat_percent threshold
+        top_categories = category_counts[category_counts >= min_count].nlargest(top_n).index.tolist()
+
+        # Handle the case where no categories meet the threshold
+        if not top_categories:
+            print(f"No categories meet the minimum frequency threshold of {min_cat_percent}%.")
+            if drop:
+                print(f"All rows will be dropped because no categories meet the threshold.")
+                return df.iloc[0:0]  # Return empty DataFrame with same columns
+            else:
+                print(f"All categories will be labeled as '{other_label}'.")
         else:
-            if pd.api.types.is_categorical_dtype(df[column]):
-                # Add 'Other' to categories if not present
-                if other_label not in df[column].cat.categories:
-                    df[column] = df[column].cat.add_categories([other_label])
-            mask = ~(df[column].isin(top_categories) | df[column].isna())
-            num_replaced = mask.sum()
-            df.loc[mask, column] = other_label
-            print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in top {top_n} categories.")
+            print(f"Top categories meeting the threshold: {top_categories}")
     elif categories_to_keep is not None:
-        if drop:
-            df = df[df[column].isin(categories_to_keep) | df[column].isna()]
-            rows_dropped = initial_row_count - len(df)
-            print(f"Dropped {rows_dropped} rows where '{column}' is not in the specified categories to keep.")
+        category_counts = df[column].value_counts(dropna=False)
+        min_count = (min_cat_percent / 100) * total_rows
+
+        # Filter categories_to_keep based on min_cat_percent threshold
+        categories_to_keep = [cat for cat in categories_to_keep if category_counts.get(cat, 0) >= min_count]
+
+        # Handle the case where no categories meet the threshold
+        if not categories_to_keep:
+            print(f"No categories in categories_to_keep meet the minimum frequency threshold of {min_cat_percent}%.")
+            if drop:
+                print(f"All rows will be dropped because no categories meet the threshold.")
+                return df.iloc[0:0]  # Return empty DataFrame with same columns
+            else:
+                print(f"All categories will be labeled as '{other_label}'.")
         else:
-            if pd.api.types.is_categorical_dtype(df[column]):
-                # Add 'Other' to categories if not present
-                if other_label not in df[column].cat.categories:
-                    df[column] = df[column].cat.add_categories([other_label])
-            mask = ~(df[column].isin(categories_to_keep) | df[column].isna())
-            num_replaced = mask.sum()
-            df.loc[mask, column] = other_label
-            print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in specified categories to keep.")
+            top_categories = categories_to_keep
+            print(f"Categories to keep meeting the threshold: {top_categories}")
     else:
         raise ValueError("Either top_n or categories_to_keep must be provided.")
-    
+
+    if drop:
+        # Drop rows where column is not in top_categories or is rare
+        df = df[df[column].isin(top_categories) | df[column].isna()]
+        rows_dropped = initial_row_count - len(df)
+        print(f"Dropped {rows_dropped} rows where '{column}' is not in the specified categories or occur less than {min_cat_percent}% of total rows.")
+    else:
+        # Replace categories not in top_categories or that are rare with other_label
+        if pd.api.types.is_categorical_dtype(df[column]):
+            # Add 'Other' to categories if not present
+            if other_label not in df[column].cat.categories:
+                df[column] = df[column].cat.add_categories([other_label])
+        df[column] = df[column].where(df[column].isin(top_categories) | df[column].isna(), other_label)
+        num_replaced = (df[column] == other_label).sum()
+        print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in specified categories or occur less than {min_cat_percent}% of total rows.")
+
     return df
 
 
 
 
 
-# Retain top_n ITs 
-import pandas as pd
 
-def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other'):
+
+# Retain top_n ITs 
+def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other', min_cat_percent=10):
     """
-    Retain top_n ITs (innovative technology codes) and replace others with `other_label`.
+    Retain top_n ITs (innovative technology codes) that have a frequency greater than min_cat_percent and replace others with `other_label`.
     
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the IT columns.
-    - top_n (int): Number of top ITs to retain based on frequency.
+    - top_n (int): Number of top ITs to consider based on frequency.
     - IT_columns (list, optional): List of IT column names. Defaults to ['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'].
     - other_label (str, optional): Label for aggregated other ITs. Defaults to 'Other'.
+    - min_cat_percent (float, optional): Minimum percentage threshold for IT frequency.
+        ITs occurring less than this percentage of total IT entries will be replaced by other_label.
+        For example, 10 corresponds to 10%. Defaults to 10.
     
     Returns:
     - pd.DataFrame: DataFrame with updated IT columns.
     """
-    print(f"Retaining top {top_n} ITs and labeling others as '{other_label}'...")
-    
+    import pandas as pd
+
+    print(f"Retaining top {top_n} ITs that occur more than {min_cat_percent}% and labeling others as '{other_label}'...")
+
     # Identify which IT columns are present in the DataFrame
     existing_IT_columns = [col for col in IT_columns if col in df.columns]
     missing_IT_columns = [col for col in IT_columns if col not in df.columns]
-    
+
     if missing_IT_columns:
         print(f"Warning: The following IT columns are not in the DataFrame and will be skipped: {missing_IT_columns}")
-    
+
     if not existing_IT_columns:
         print("No valid IT columns found for processing. Returning original DataFrame.")
         return df.copy()
-    
+
     # Concatenate all existing IT columns to compute global top_n
     combined_ITs = pd.concat([df[col] for col in existing_IT_columns], axis=0, ignore_index=True).dropna()
-    
-    # Determine the top_n ITs
-    top_n_ITs = combined_ITs.value_counts().nlargest(top_n).index.tolist()
-    print(f"Top {top_n} ITs: {top_n_ITs}")
-    
-    # Replace ITs not in top_n with other_label using vectorized operations
+
+    # Total number of IT entries (excluding NaNs)
+    total_IT_entries = len(combined_ITs)
+
+    # Get IT counts
+    IT_counts = combined_ITs.value_counts()
+
+    # Calculate minimum count based on min_cat_percent
+    min_count = (min_cat_percent / 100) * total_IT_entries
+
+    # Determine the top_n ITs that meet the min_cat_percent threshold
+    top_ITs = IT_counts[IT_counts >= min_count].nlargest(top_n).index.tolist()
+
+    # Handle the case where no IT meets the threshold
+    if not top_ITs:
+        print(f"No ITs meet the minimum frequency threshold of {min_cat_percent}%. All ITs will be labeled as '{other_label}'.")
+        top_ITs = []
+
+    else:
+        print(f"Top ITs meeting the threshold: {top_ITs}")
+
+    # Replace ITs not in top_ITs with other_label using vectorized operations
     for col in existing_IT_columns:
         if pd.api.types.is_categorical_dtype(df[col]):
-            # Add 'Other' to categories if not present
+            # Add other_label to categories if not present
             if other_label not in df[col].cat.categories:
                 df[col] = df[col].cat.add_categories([other_label])
-        
-        # Replace ITs not in top_n_ITs with other_label
-        original_unique = df[col].dropna().unique().tolist()
-        df[col] = df[col].where(df[col].isin(top_n_ITs), other_label)
+
+        # Replace ITs not in top_ITs with other_label
+        df[col] = df[col].where(df[col].isin(top_ITs) | df[col].isna(), other_label)
+
         updated_unique = df[col].dropna().unique().tolist()
-        
         print(f"Updated '{col}' categories: {updated_unique}")
-    
+
     print("Replacement complete.\n")
     return df.copy()
 
@@ -309,20 +361,23 @@ def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_
 
 
 
+
 # Generate categories lists and functions to choose
-def generate_category_lists(df, max_categories=20):
+def generate_category_lists(df, max_categories=20, min_cat_percent=10):
     """
     Generates summaries of categories for specified columns and provides
-    pre-filled filter_categories and retain_top_n_ITs function calls for easy integration.
+    pre-filled `filter_categories` and `retain_top_n_ITs` function calls for easy integration.
 
     The output is formatted with comments and code snippets that can be
     directly copied into your codebase. You only need to manually delete
-    the category names you want to exclude from the `categories_to_keep` list or adjust the `top_n` parameter.
+    the category names you want to exclude from the `categories_to_keep` list or adjust the `top_n` and `min_cat_percent` parameters.
 
     Parameters:
     - df (pd.DataFrame): The DataFrame containing the categorical columns.
     - max_categories (int, default=20): Maximum number of categories to display 
       based on value counts for columns with high cardinality.
+    - min_cat_percent (float, default=10): Minimum percentage threshold for category frequency.
+      Categories occurring less than this percentage of total rows will be considered 'Other' or dropped.
 
     Returns:
     - None: Prints the summaries and function calls to the console.
@@ -361,11 +416,11 @@ def generate_category_lists(df, max_categories=20):
         # Add the note about the behavior when both top_n and categories_to_keep are provided
         print("# Note: If both `top_n` and `categories_to_keep` are provided, `categories_to_keep` will be ignored.")
         # Add the note about the drop parameter
-        print("# If drop = True rows will be dropped, otherwise labeled \"other\"")
-        # Print the pre-filled filter_categories function call
-        print(f"df = filter_categories(df, '{col}', drop=False, top_n=None, categories_to_keep=[{categories_list_str}])")
+        print("# If drop = True, rows will be dropped; otherwise, they will be labeled as 'Other'.")
+        # Print the pre-filled filter_categories function call including min_cat_percent
+        print(f"df = filter_categories(df, '{col}', drop=False, top_n=None, categories_to_keep=[{categories_list_str}], min_cat_percent={min_cat_percent})")
         print()  # Add an empty line for better readability
-    
+        
     # Handle IT columns separately
     IT_columns = ['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5']
     IT_present = [col for col in IT_columns if col in df.columns]
@@ -390,12 +445,12 @@ def generate_category_lists(df, max_categories=20):
         print(f"# Current top {max_categories} ITs:")
         print(f"# [{IT_list_str}]")
         
-        # Print the pre-filled retain_top_n_ITs function call with a placeholder for top_n
-        print(f"df = retain_top_n_ITs(df, top_n=10, IT_columns={IT_present}, other_label='Other')")
+        # Print the pre-filled retain_top_n_ITs function call including min_cat_percent
+        print(f"df = retain_top_n_ITs(df, top_n=10, IT_columns={IT_present}, other_label='Other', min_cat_percent={min_cat_percent})")
         print()  # Add an empty line for better readability
     else:
         print("# No IT columns found in the DataFrame.")
-        
+
         
 
 # Define Loading data function for the local drive
