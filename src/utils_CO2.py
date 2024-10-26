@@ -355,6 +355,7 @@ def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_
         print(f"Updated '{col}' categories: {updated_unique}")
 
     print("Replacement complete.\n")
+    print("=======================\n")
     return df.copy()
 
 
@@ -1018,6 +1019,8 @@ def handle_nans(df, strategy_dict):
         else:
             # This should not happen due to earlier validation
             raise ValueError(f"Unhandled strategy '{strategy}' for column '{col}'.")
+        
+    print("=======================\n")
     
     return df
 
@@ -1191,11 +1194,12 @@ def encode_top_its(df, n=0):
     # Drop original 'IT_' columns
     df.drop(columns=it_code_columns, inplace=True)
     print(f"Original IT code columns {it_code_columns} removed after encoding.\n")
+    print("=======================\n")
     
     return df
 
 
-def encode_categorical_columns(df, exclude_prefix='IT_', n=0):
+def encode_categorical_columns_old(df, exclude_prefix='IT_', n=0):
     """
     One-hot encodes the top 'n' most common values across all categorical columns in the DataFrame.
     If n=0, encodes all unique values. Excludes columns starting with 'exclude_prefix'.
@@ -1254,5 +1258,49 @@ def encode_categorical_columns(df, exclude_prefix='IT_', n=0):
     
     return df
 
+
+
+def encode_categorical_columns(df, exclude_prefix='IT_'):
+    """
+    One-hot encodes all unique values present in each categorical column in the DataFrame.
+    Excludes columns starting with 'exclude_prefix'.
+    
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame containing categorical columns.
+    - exclude_prefix (str): Prefix of column names to exclude from encoding.
+    
+    Returns:
+    - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
+    """
+    # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
+    cat_columns = [
+        col for col in df.select_dtypes(include=['category', 'object']).columns 
+        if not col.startswith(exclude_prefix)
+    ]
+    print(f"Identified categorical columns to encode (excluding '{exclude_prefix}'): {cat_columns}")
+    
+    if not cat_columns:
+        print("No categorical columns found for encoding. Skipping one-hot encoding.")
+        return df
+
+    # Adjust categories to include only the present values in each categorical column
+    for col in cat_columns:
+        df[col] = df[col].astype('category')  # Ensure the column is of type category
+        df[col] = df[col].cat.remove_unused_categories()  # Remove categories not present in the column
+
+    # One-hot encode all categorical columns at once, ensuring only present values are encoded
+    df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=False)
+    print(f"One-hot encoding completed for columns: {cat_columns}")
+    
+    # Print the number of encoded values (columns) and the encoded values per original categorical column
+    for col in cat_columns:
+        encoded_values = df[col].cat.categories.tolist()
+        num_encoded_cols = len(encoded_values)
+        print(f"\nColumn '{col}' encoded into {num_encoded_cols} values:")
+        print(f"Encoded values: {encoded_values}")
+    
+    print("=======================\n")
+    
+    return df_encoded
 
 
