@@ -241,6 +241,8 @@ def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=Non
 
 
 # Retain top_n ITs 
+import pandas as pd
+
 def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other'):
     """
     Retain top_n ITs (innovative technology codes) and replace others with `other_label`.
@@ -256,27 +258,41 @@ def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_
     """
     print(f"Retaining top {top_n} ITs and labeling others as '{other_label}'...")
     
-    # Concatenate all IT columns to compute global top_n
-    combined_ITs = pd.concat([df[col] for col in IT_columns if col in df.columns], axis=0, ignore_index=True).dropna()
+    # Identify which IT columns are present in the DataFrame
+    existing_IT_columns = [col for col in IT_columns if col in df.columns]
+    missing_IT_columns = [col for col in IT_columns if col not in df.columns]
+    
+    if missing_IT_columns:
+        print(f"Warning: The following IT columns are not in the DataFrame and will be skipped: {missing_IT_columns}")
+    
+    if not existing_IT_columns:
+        print("No valid IT columns found for processing. Returning original DataFrame.")
+        return df.copy()
+    
+    # Concatenate all existing IT columns to compute global top_n
+    combined_ITs = pd.concat([df[col] for col in existing_IT_columns], axis=0, ignore_index=True).dropna()
     
     # Determine the top_n ITs
     top_n_ITs = combined_ITs.value_counts().nlargest(top_n).index.tolist()
     print(f"Top {top_n} ITs: {top_n_ITs}")
     
     # Replace ITs not in top_n with other_label using vectorized operations
-    for col in IT_columns:
-        if col in df.columns:
-            if pd.api.types.is_categorical_dtype(df[col]):
-                # Add 'Other' to categories if not present
-                if other_label not in df[col].cat.categories:
-                    df[col] = df[col].cat.add_categories([other_label])
-            original_unique = df[col].dropna().unique().tolist()
-            df[col] = df[col].where(df[col].isin(top_n_ITs), other_label)
-            updated_unique = df[col].dropna().unique().tolist()
-            print(f"Updated '{col}' categories: {updated_unique}")
+    for col in existing_IT_columns:
+        if pd.api.types.is_categorical_dtype(df[col]):
+            # Add 'Other' to categories if not present
+            if other_label not in df[col].cat.categories:
+                df[col] = df[col].cat.add_categories([other_label])
+        
+        # Replace ITs not in top_n_ITs with other_label
+        original_unique = df[col].dropna().unique().tolist()
+        df[col] = df[col].where(df[col].isin(top_n_ITs), other_label)
+        updated_unique = df[col].dropna().unique().tolist()
+        
+        print(f"Updated '{col}' categories: {updated_unique}")
     
     print("Replacement complete.\n")
-    return df
+    return df.copy()
+
 
 
 
@@ -639,6 +655,7 @@ def filter_dataframe_by_year(df, year=2018):
 
     return df
 
+
 # Function to replace outliers with the median in Gaussian-distributed columns using the IQR method
 def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True):
     """
@@ -654,35 +671,57 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     Returns:
     DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
     """
-
+    
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
         print("Outlier replacement not applied. Returning original DataFrame.")
         return df  # Return the original DataFrame without modifications
 
-    # Use gaussian_cols as default if columns is None
+    # Use 'gaussian_cols' as default if columns is None
     if columns is None:
-        columns = gaussian_cols
+        try:
+            columns = gaussian_cols  # Ensure 'gaussian_cols' is defined
+        except NameError:
+            raise ValueError("Default column list 'gaussian_cols' is not defined. Please specify the 'columns' parameter.")
 
-    # Calculate the first (Q1) and third (Q3) quartiles
-    Q1 = df[columns].quantile(0.25)
-    Q3 = df[columns].quantile(0.75)
+    # Identify which columns are present in the DataFrame
+    existing_columns = [col for col in columns if col in df.columns]
+    missing_columns = [col for col in columns if col not in df.columns]
+
+    if missing_columns:
+        print(f"Warning: The following columns are not in the DataFrame and will be skipped: {missing_columns}")
+
+    if not existing_columns:
+        print("No valid columns found for outlier replacement. Returning original DataFrame.")
+        return df
+
+    # Calculate the first (Q1) and third (Q3) quartiles for existing columns
+    Q1 = df[existing_columns].quantile(0.25)
+    Q3 = df[existing_columns].quantile(0.75)
     IQR = Q3 - Q1  # Interquartile Range (IQR)
 
     # Define the outlier condition based on IQR
-    outlier_condition = ((df[columns] < (Q1 - IQR_distance_multiplier * IQR)) |
-                         (df[columns] > (Q3 + IQR_distance_multiplier * IQR)))
+    outlier_condition = ((df[existing_columns] < (Q1 - IQR_distance_multiplier * IQR)) |
+                         (df[existing_columns] > (Q3 + IQR_distance_multiplier * IQR)))
 
-    # Replace outliers with the median of each column
-    for col in columns:
+    # Replace outliers with the median of each existing column
+    for col in existing_columns:
         median_value = df[col].median()  # Get the median value of the column
-        df.loc[outlier_condition[col], col] = median_value  # Replace outliers with the median
+        outliers = outlier_condition[col]
+        num_outliers = outliers.sum()
+        if num_outliers > 0:
+            df.loc[outliers, col] = median_value  # Replace outliers with the median
+            print(f"Replaced {num_outliers} outliers in column '{col}' with median value {median_value}.")
 
     print(f"DataFrame shape after replacing outliers in Gaussian columns: {df.shape}")
 
     return df
 
+
 # Function to remove outliers from non-Gaussian distributed columns using the IQR method for individual rows
+import numpy as np
+import pandas as pd
+
 def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True):
     """
     Removes outliers in specified non-Gaussian distributed columns using the IQR method for individual rows.
@@ -700,15 +739,31 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
         print("Outlier removal not applied. Returning original DataFrame.")
-        return df  # Return the original DataFrame without modifications
+        return df.copy()  # Return a copy of the original DataFrame without modifications
 
+    # Use 'non_gaussian_cols' as default if columns is None
     if columns is None:
-        columns = non_gaussian_cols  # Use 'non_gaussian_cols' if no columns are specified
+        try:
+            columns = non_gaussian_cols  # Ensure 'non_gaussian_cols' is defined
+        except NameError:
+            raise ValueError("Default column list 'non_gaussian_cols' is not defined. Please specify the 'columns' parameter.")
 
-    outliers_removed = df.copy()  # Create a copy of the DataFrame to store results
+    # Identify which columns are present in the DataFrame
+    existing_columns = [col for col in columns if col in df.columns]
+    missing_columns = [col for col in columns if col not in df.columns]
 
-    # Loop through each column to remove outliers only for specific rows
-    for col in columns:
+    if missing_columns:
+        print(f"Warning: The following columns are not in the DataFrame and will be skipped: {missing_columns}")
+
+    if not existing_columns:
+        print("No valid columns found for outlier removal. Returning original DataFrame.")
+        return df.copy()
+
+    # Create a copy of the DataFrame to store results
+    outliers_removed = df.copy()
+
+    # Loop through each existing column to remove outliers
+    for col in existing_columns:
         # Calculate the first (Q1) and third (Q3) quartiles
         Q1 = df[col].quantile(0.25)
         Q3 = df[col].quantile(0.75)
@@ -718,9 +773,16 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
         lower_bound = Q1 - IQR_distance_multiplier * IQR
         upper_bound = Q3 + IQR_distance_multiplier * IQR
 
-        # Cap values only where they are outliers
+        # Identify outliers
+        lower_outliers = df[col] < lower_bound
+        upper_outliers = df[col] > upper_bound
+        total_outliers = lower_outliers.sum() + upper_outliers.sum()
+
+        # Cap the outliers at the lower and upper bounds
         outliers_removed[col] = np.where(df[col] < lower_bound, lower_bound,
                                          np.where(df[col] > upper_bound, upper_bound, df[col]))
+
+        print(f"Capped {total_outliers} outliers in column '{col}' between {lower_bound} and {upper_bound}.")
 
     # Print the shape of the DataFrame after capping outliers
     print(f"DataFrame shape after capping outliers in non-Gaussian columns: {outliers_removed.shape}")
