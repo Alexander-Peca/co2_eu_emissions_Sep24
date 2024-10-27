@@ -1274,3 +1274,106 @@ def encode_categorical_columns(df, exclude_prefix='IT_'):
     return df_encoded
 
 
+# ================================================================
+# ========== manage filenames ====================================
+import os
+import pandas as pd
+
+# Define the base directories
+BASE_PATH = os.path.abspath(os.path.join('..', 'data', 'Preprocessed'))
+SRC_PATH = os.path.abspath(os.path.join('..', 'src'))
+MAPPING_CSV = os.path.join(SRC_PATH, 'file_mapping.csv')
+
+def create_or_append_file_mapping(filename_list, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
+    """
+    Creates a new file mapping DataFrame or appends new filenames to an existing mapping.
+
+    Parameters:
+    - filename_list (list): List of filename strings to add.
+    - mapping_csv (str): Path to the CSV file storing the mapping.
+    - base_path (str): Base directory where the files are located.
+    """
+    # Ensure the source directory exists
+    os.makedirs(os.path.dirname(mapping_csv), exist_ok=True)
+    
+    # If the mapping CSV exists, load it; otherwise, create an empty DataFrame
+    if os.path.exists(mapping_csv):
+        file_df = pd.read_csv(mapping_csv)
+        # Ensure the 'number' column is of integer type
+        file_df['number'] = file_df['number'].astype(int)
+        next_num = file_df['number'].max() + 1 if not file_df.empty else 1
+    else:
+        file_df = pd.DataFrame(columns=['number', 'filename'])
+        next_num = 1
+
+    # Append new filenames, avoiding duplicates
+    new_entries = []
+    existing_filenames = set(file_df['filename'])
+    for filename in filename_list:
+        if filename not in existing_filenames:
+            new_entries.append({'number': next_num, 'filename': filename})
+            next_num += 1
+        else:
+            print(f"Filename '{filename}' already exists. Skipping.")
+
+    if new_entries:
+        new_df = pd.DataFrame(new_entries)
+        file_df = pd.concat([file_df, new_df], ignore_index=True)
+        # Save the updated mapping back to CSV
+        file_df.to_csv(mapping_csv, index=False)
+        print(f"Mapping saved to file_mapping.csv")
+    else:
+        print("No new filenames to add.")
+
+def load_file_mapping(mapping_csv=MAPPING_CSV):
+    """
+    Loads the file mapping DataFrame from a CSV file.
+
+    Parameters:
+    - mapping_csv (str): Path to the CSV file storing the mapping.
+
+    Returns:
+    - pandas.DataFrame: DataFrame mapping numbers to filenames.
+    """
+    if not os.path.exists(mapping_csv):
+        raise FileNotFoundError(f"The mapping CSV '{mapping_csv}' does not exist.")
+
+    file_df = pd.read_csv(mapping_csv)
+    file_df['number'] = file_df['number'].astype(int)
+    return file_df
+
+
+
+def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
+    """
+    Loads the data file corresponding to the given number.
+
+    Parameters:
+    - number (int): The number corresponding to the desired file.
+    - mapping_csv (str): Path to the CSV file storing the mapping.
+    - base_path (str): Base directory where the files are located.
+
+    Returns:
+    - pandas.DataFrame or other: Loaded data.
+    """
+    # Load the mapping DataFrame
+    file_df = load_file_mapping(mapping_csv)
+
+    # Find the filename corresponding to the given number
+    row = file_df[file_df['number'] == number]
+    if row.empty:
+        raise ValueError(f"No file found with number: {number}")
+
+    filename = row.iloc[0]['filename']
+    full_path = os.path.join(base_path, filename)
+
+    # Check if the file exists
+    if not os.path.exists(full_path):
+        raise FileNotFoundError(f"The file '{full_path}' does not exist.")
+
+    # Load the data using the existing load function
+    data = load_data_local_anon(full_path)
+    print(f"Loaded file: '{filename}'")
+    return data
+
+# ================ end of manage filenames ===========================
