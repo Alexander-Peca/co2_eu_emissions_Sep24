@@ -189,7 +189,7 @@ def all_to_nan_and_cat(df, cols):
         
         
 # Filter categories        
-def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other', min_cat_percent=10):
+def filter_categories_old(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other', min_cat_percent=10):
     """
     Filter categories in a column based on top_n, an explicit list of categories to keep, and minimum category frequency.
 
@@ -281,6 +281,100 @@ def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=Non
     return df
 
 
+def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other', min_cat_percent=10):
+    """
+    Filter categories in a column based on top_n, an explicit list of categories to keep, and minimum category frequency.
+
+    Parameters:
+    - df (pd.DataFrame): The DataFrame containing the categorical column.
+    - column (str): The name of the categorical column.
+    - drop (bool, optional):
+        If True, drop rows with categories not in categories_to_keep or top_n,
+        or that occur less than min_cat_percent% of all rows.
+        If False, label them as 'Other'. Defaults to False.
+    - top_n (int, optional): Number of top categories to keep based on frequency.
+    - categories_to_keep (list, optional): List of categories to retain.
+    - other_label (str, optional): Label for aggregated other categories. Defaults to 'Other'.
+    - min_cat_percent (float, optional):
+        Minimum percentage threshold for category frequency.
+        Categories occurring less than this percentage of total rows will be considered 'Other' or dropped.
+        For example, 10 corresponds to 10%. Defaults to 10.
+
+    Returns:
+    - pd.DataFrame: DataFrame with updated categorical column.
+
+    Notes:
+    - If categories_to_keep is provided, only categories in this list will be considered, even when top_n is specified.
+    - The min_cat_percent criterion always applies.
+    - All categories that have a value count of less than min_cat_percent% of total rows (including NaN rows) will be replaced by other_label or dropped, depending on the drop parameter.
+    - If no categories meet the min_cat_percent threshold, all categories will be labeled as 'Other' or dropped.
+
+    Raises:
+    - ValueError: If neither top_n nor categories_to_keep is provided.
+    """
+    import pandas as pd
+
+    initial_row_count = len(df)
+    total_rows = initial_row_count
+
+    category_counts = df[column].value_counts(dropna=False)
+    min_count = (min_cat_percent / 100) * total_rows
+
+    # Apply min_cat_percent threshold
+    categories_meeting_threshold = category_counts[category_counts >= min_count].index.tolist()
+
+    if categories_to_keep is not None:
+        # Filter categories_to_keep based on min_cat_percent threshold
+        categories_to_keep = [cat for cat in categories_to_keep if cat in categories_meeting_threshold]
+
+        if top_n is not None:
+            # Select top_n categories from categories_to_keep
+            filtered_counts = category_counts[categories_to_keep]
+            top_categories = filtered_counts.nlargest(top_n).index.tolist()
+        else:
+            top_categories = categories_to_keep
+
+        if not top_categories:
+            print(f"No categories in categories_to_keep meet the minimum frequency threshold of {min_cat_percent}%.")
+            if drop:
+                print(f"All rows will be dropped because no categories meet the threshold.")
+                return df.iloc[0:0]  # Return empty DataFrame with same columns
+            else:
+                print(f"All categories will be labeled as '{other_label}'.")
+    else:
+        if top_n is not None:
+            # Determine top_n categories that meet the min_cat_percent threshold
+            top_categories = category_counts[category_counts >= min_count].nlargest(top_n).index.tolist()
+        else:
+            # Keep all categories that meet the threshold
+            top_categories = categories_meeting_threshold
+
+        if not top_categories:
+            print(f"No categories meet the minimum frequency threshold of {min_cat_percent}%.")
+            if drop:
+                print(f"All rows will be dropped because no categories meet the threshold.")
+                return df.iloc[0:0]  # Return empty DataFrame with same columns
+            else:
+                print(f"All categories will be labeled as '{other_label}'.")
+
+    print(f"Categories to keep after applying thresholds: {top_categories}")
+
+    if drop:
+        # Drop rows where column is not in top_categories or is rare
+        df = df[df[column].isin(top_categories) | df[column].isna()]
+        rows_dropped = initial_row_count - len(df)
+        print(f"Dropped {rows_dropped} rows where '{column}' is not in the specified categories or occur less than {min_cat_percent}% of total rows.")
+    else:
+        # Replace categories not in top_categories or that are rare with other_label
+        if pd.api.types.is_categorical_dtype(df[column]):
+            # Add 'Other' to categories if not present
+            if other_label not in df[column].cat.categories:
+                df[column] = df[column].cat.add_categories([other_label])
+        df[column] = df[column].where(df[column].isin(top_categories) | df[column].isna(), other_label)
+        num_replaced = (df[column] == other_label).sum()
+        print(f"Replaced {num_replaced} values in '{column}' with '{other_label}' where not in specified categories or occur less than {min_cat_percent}% of total rows.")
+
+    return df
 
 
 
@@ -1230,7 +1324,7 @@ def encode_top_its(df, n=0):
 
 
 
-def encode_categorical_columns(df, exclude_prefix='IT_'):
+def encode_categorical_columns_old(df, exclude_prefix='IT_'):
     """
     One-hot encodes all unique values present in each categorical column in the DataFrame.
     Excludes columns starting with 'exclude_prefix'.
@@ -1272,6 +1366,51 @@ def encode_categorical_columns(df, exclude_prefix='IT_'):
     print("=======================\n")
     
     return df_encoded
+
+
+def encode_categorical_columns(df, exclude_prefix='IT_'):
+    """
+    One-hot encodes all unique values present in each categorical column in the DataFrame.
+    Excludes columns starting with 'exclude_prefix' and avoids the dummy variable trap.
+    
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame containing categorical columns.
+    - exclude_prefix (str): Prefix of column names to exclude from encoding.
+    
+    Returns:
+    - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
+    """
+    # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
+    cat_columns = [
+        col for col in df.select_dtypes(include=['category', 'object']).columns 
+        if not col.startswith(exclude_prefix)
+    ]
+    print(f"Identified categorical columns to encode (excluding '{exclude_prefix}'): {cat_columns}")
+    
+    if not cat_columns:
+        print("No categorical columns found for encoding. Skipping one-hot encoding.")
+        return df
+
+    # Adjust categories to include only the present values in each categorical column
+    for col in cat_columns:
+        df[col] = df[col].astype('category')  # Ensure the column is of type category
+        df[col] = df[col].cat.remove_unused_categories()  # Remove categories not present in the column
+
+    # One-hot encode with `drop_first=True` to avoid dummy variable trap
+    df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=True)
+    print(f"One-hot encoding completed with dummy variable trap prevention for columns: {cat_columns}")
+    
+    # Print the number of encoded values (columns) and the encoded values per original categorical column
+    for col in cat_columns:
+        encoded_values = df[col].cat.categories.tolist()[1:]  # Exclude the first as baseline
+        num_encoded_cols = len(encoded_values)
+        print(f"\nColumn '{col}' encoded into {num_encoded_cols} values (baseline category dropped):")
+        print(f"Encoded values: {encoded_values}")
+    
+    print("=======================\n")
+    
+    return df_encoded
+
 
 
 # ================================================================
