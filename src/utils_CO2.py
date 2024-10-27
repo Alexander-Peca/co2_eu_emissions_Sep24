@@ -1368,7 +1368,7 @@ def encode_categorical_columns_old(df, exclude_prefix='IT_'):
     return df_encoded
 
 
-def encode_categorical_columns(df, exclude_prefix='IT_'):
+def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     """
     One-hot encodes all unique values present in each categorical column in the DataFrame.
     Excludes columns starting with 'exclude_prefix' and avoids the dummy variable trap.
@@ -1397,7 +1397,7 @@ def encode_categorical_columns(df, exclude_prefix='IT_'):
         df[col] = df[col].cat.remove_unused_categories()  # Remove categories not present in the column
 
     # One-hot encode with `drop_first=True` to avoid dummy variable trap
-    df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=True)
+    df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=drop_first)
     print(f"One-hot encoding completed with dummy variable trap prevention for columns: {cat_columns}")
     
     # Print the number of encoded values (columns) and the encoded values per original categorical column
