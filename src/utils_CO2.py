@@ -1517,7 +1517,7 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
 
 # ================ end of manage filenames ===========================
 
-def drop_duplicates_with_report(df, subset=None, drop=True):
+def drop_duplicates(df, subset=None, drop=True):
     initial_count = len(df)
     
     if drop:
