@@ -1516,3 +1516,19 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
     return data
 
 # ================ end of manage filenames ===========================
+
+def drop_duplicates_with_report(df, subset=None, drop=True):
+    initial_count = len(df)
+    
+    if drop:
+        df = df.drop_duplicates(subset=subset)
+    
+    final_count = len(df)
+    dropped_count = initial_count - final_count
+    
+    print(f"Initial row count: {initial_count}")
+    print(f"Final row count: {final_count}")
+    print(f"Number of duplicates {'dropped' if drop else 'found'}: {dropped_count}")
+    print("=======================\n")
+    
+    return df
