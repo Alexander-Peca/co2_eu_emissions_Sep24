@@ -5,6 +5,9 @@ import numpy as np
 import pyarrow.parquet as pq  # For working with parquet files
 import re
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 import sys
 import os
 
@@ -1517,11 +1520,71 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
 
 # ================ end of manage filenames ===========================
 
-def drop_duplicates(df, subset=None, drop=True):
+
+# drop duplicates and calculate frequencies from #identical occurences
+import pandas as pd
+
+def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
+    """
+    Removes duplicate rows from the DataFrame. Optionally preserves and updates frequency counts.
+
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+    - subset (list or None): Columns to consider for identifying duplicates. If None, all columns are considered except 'frequency'.
+    - drop (bool): Whether to drop duplicates. Default is True.
+    - preserve_weights (bool): Whether to preserve and sum frequency counts. Default is False.
+
+    Returns:
+    - pd.DataFrame: The DataFrame after processing duplicates.
+    """
     initial_count = len(df)
     
-    if drop:
-        df = df.drop_duplicates(subset=subset)
+    if preserve_weights:
+        # Check if the frequency column exists
+        if '#identical occurences' not in df.columns:
+            raise ValueError("The DataFrame does not contain the '#identical occurences' column.")
+        
+        # Calculate total frequency before any changes
+        total_freq_before = df['#identical occurences'].sum()
+        
+        # Rename the frequency column to 'frequency'
+        df = df.rename(columns={'#identical occurences': 'frequency'})
+        
+        # Define group columns based on the subset
+        if subset is not None:
+            group_cols = subset
+        else:
+            # If subset is None, consider all columns except 'frequency' as group columns
+            group_cols = [col for col in df.columns if col != 'frequency']
+        
+        # Group by the specified columns and sum the 'frequency'
+        frequency_sum = df.groupby(group_cols, as_index=False)['frequency'].sum()
+        
+        # Retain the first occurrence of each group for other columns
+        df_first = df.drop_duplicates(subset=group_cols, keep='first')
+        
+        # Drop the existing 'frequency' to avoid duplication
+        df_first = df_first.drop(columns=['frequency'], errors='ignore')
+        
+        # Merge the summed frequency back to the first occurrences
+        df = pd.merge(df_first, frequency_sum, on=group_cols, how='left')
+        
+        # Calculate total frequency after changes
+        total_freq_after = df['frequency'].sum()
+        
+        # Print frequency totals
+        print(f"Total frequency before drops: {total_freq_before}")
+        print(f"Total frequency after drops: {total_freq_after}")
+        
+        # Optionally, verify that the frequencies match
+        if total_freq_before != total_freq_after:
+            print("Warning: Total frequencies before and after dropping duplicates do not match.")
+        else:
+            print("Total frequencies are consistent before and after dropping duplicates.")
+        
+    elif drop:
+        # Remove duplicates as usual
+        df = df.drop_duplicates(subset=subset, keep='first')
     
     final_count = len(df)
     dropped_count = initial_count - final_count
@@ -1532,3 +1595,218 @@ def drop_duplicates(df, subset=None, drop=True):
     print("=======================\n")
     
     return df
+
+
+
+
+# plot histograms per year even more sophisticated version (with lineplot)
+
+def plot_normalized_histograms(
+    df,
+    attributes,
+    row_var,
+    col_wrap=5,
+    height=3,
+    aspect=1.5,
+    bins=10,
+    palette=None,
+    norm=True,
+    iqrfactor=1.5,
+    ylimfactor=1,
+    plot_type='histogram'
+):
+    """
+    Plots multiple histograms on the same subplot with consistent bin widths and y-limits.
+    If norm is True, data is normalized between the minimum and Q3 + iqrfactor * IQR.
+    Zeros and outliers (values > Q3 + iqrfactor * IQR) are excluded in both cases.
+
+    Parameters:
+    - df: The DataFrame containing the data.
+    - attributes: A list of column names (attributes) to plot.
+    - row_var: The column used to facet the data (e.g., 'year').
+    - col_wrap: Number of columns per row in the grid (default is 5).
+    - height: Height of each subplot (default is 3).
+    - aspect: Aspect ratio of each subplot (default is 1.5).
+    - bins: Number of bins in the visible part of the distributions.
+    - palette: Palette the attribute colors are chosen from.
+    - norm: Boolean indicating whether to normalize the data or not.
+    - iqrfactor: Attribute values (outliers) are cut at Q3 + IQR * iqrfactor (default = 1.5)
+    - ylimfactor: Factor to multiply ylim of all graphs with (default = 1)
+    - plot_type: 'histogram', 'line', or 'both' to choose the plot type (default='histogram')
+    """
+    # Create a copy of the dataframe to avoid modifying the original data
+    df_copy = df.copy()
+    
+    # Prepare dictionaries to store processed data
+    data_dict = {}
+    data_min_list = []
+    data_max_list = []
+    
+    # Exclude zeros and outliers, normalize if required
+    for attribute in attributes:
+        column = df_copy[attribute]
+        # Replace zeros with NaN
+        column = column.replace(0, np.nan)
+        # Remove NaNs for processing
+        non_nan_values = column.dropna()
+        
+        # Check if non_nan_values is empty
+        if non_nan_values.empty:
+            print(f"No valid data for attribute '{attribute}' after excluding zeros and NaNs.")
+            continue
+        
+        # Calculate IQR (Interquartile Range)
+        q1 = np.percentile(non_nan_values, 25)
+        q3 = np.percentile(non_nan_values, 75)
+        iqr = q3 - q1
+        
+        # Define upper bound for outliers
+        upper_bound = q3 + iqrfactor * iqr
+        
+        # Exclude outliers
+        column[column > upper_bound] = np.nan
+        
+        # Optionally normalize the data
+        if norm:
+            lower_bound = non_nan_values.min()
+            # Avoid division by zero
+            if upper_bound - lower_bound == 0:
+                print(f"Cannot normalize attribute '{attribute}' because upper_bound equals lower_bound.")
+                normalized_column = pd.Series(np.nan, index=column.index)
+            else:
+                normalized_column = (column - lower_bound) / (upper_bound - lower_bound)
+            data_dict[attribute] = normalized_column
+        else:
+            # Use original data within bounds
+            data_dict[attribute] = column
+        
+        # Collect min and max values
+        data_min_list.append(data_dict[attribute].min())
+        data_max_list.append(data_dict[attribute].max())
+    
+    # Check if data_dict is empty
+    if not data_dict:
+        print("No valid data available for plotting after preprocessing.")
+        return
+    
+    # Compute common min and max for bin edges
+    data_min = np.nanmin(data_min_list)
+    data_max = np.nanmax(data_max_list)
+    
+    # Handle case where data_min == data_max
+    if data_min == data_max:
+        print("All data points have the same value. Adjusting data_min and data_max for binning.")
+        data_min -= 0.5
+        data_max += 0.5
+    
+    # Create common bin edges
+    bin_edges = np.linspace(data_min, data_max, bins + 1)
+    
+    # Get a color palette if none is passed
+    if palette is None:
+        palette = sns.color_palette("tab10", len(attributes))
+           
+    # Get unique values of row_var to create facets
+    facet_values = df_copy[row_var].unique()
+    n_facets = len(facet_values)
+    n_cols = col_wrap
+    n_rows = int(np.ceil(n_facets / n_cols))
+    
+    # Create the figure and axes
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * aspect * height, n_rows * height))
+    axes = axes.flatten()
+    
+    # Initialize a variable to store maximum y-value
+    max_count = 0
+    
+    # For each facet (e.g., year), compute the histogram counts and plot
+    for i, (facet_value, ax) in enumerate(zip(facet_values, axes)):
+        # Subset the data for this facet
+        df_facet = df_copy[df_copy[row_var] == facet_value]
+        
+        # Flag to check if any data was plotted
+        plotted = False
+        
+        # Plot histograms for each attribute
+        for attribute, color in zip(attributes, palette):
+            if attribute not in data_dict:
+                continue  # Skip if no valid data for this attribute
+            
+            data = data_dict[attribute][df_facet.index].dropna()
+            if data.empty:
+                continue  # Skip if no data to plot
+            
+            # Calculate histogram counts
+            counts, _ = np.histogram(data, bins=bin_edges)
+            # Calculate bin centers
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+            # Smooth counts using a simple moving average to reduce the impact of outliers
+            counts_smooth = np.convolve(counts, np.ones(3)/3, mode='same')
+            # Update max_count with the smoothed counts
+            max_count = max(max_count, counts_smooth.max())
+            
+            # Plot according to plot_type
+            if plot_type == 'histogram':
+                # Plot histogram bars
+                ax.hist(
+                    data,
+                    bins=bin_edges,
+                    color=color,
+                    edgecolor='black',
+                    alpha=0.5,
+                    label=attribute,
+                    density=False
+                )
+            elif plot_type == 'line':
+                # Plot line of counts
+                ax.plot(
+                    bin_centers,
+                    counts_smooth,
+                    color=color,
+                    label=attribute
+                )
+            elif plot_type == 'both':
+                # Plot histogram bars
+                ax.hist(
+                    data,
+                    bins=bin_edges,
+                    color=color,
+                    edgecolor='black',
+                    alpha=0.5,
+                    label=attribute,
+                    density=False
+                )
+                # Plot line of counts
+                ax.plot(
+                    bin_centers,
+                    counts_smooth,
+                    color=color,
+                    label=f"{attribute} (line)"
+                )
+            else:
+                raise ValueError("Invalid plot_type. Choose 'histogram', 'line', or 'both'.")
+            
+            plotted = True
+        
+        if plotted:
+            ax.set_title(f"{row_var}: {facet_value}")
+            ax.legend()
+            # Set xlim
+            ax.set_xlim(data_min, data_max)
+        else:
+            ax.set_visible(False)  # Hide the subplot if nothing was plotted
+    
+    # Set y-limits for all axes based on the maximum smoothed count
+    for ax in axes:
+        if ax.get_visible():
+            ax.set_ylim(0, max_count * 1.1 * ylimfactor)
+            ax.set_xlim(data_min, data_max)
+            ax.set_xlabel('Normalized Value' if norm else 'Value')
+    
+    # Remove unused subplots if any
+    for j in range(i+1, len(axes)):
+        fig.delaxes(axes[j])
+    
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
