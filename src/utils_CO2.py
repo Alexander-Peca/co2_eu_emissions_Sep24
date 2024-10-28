@@ -1522,7 +1522,6 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
 
 
 # drop duplicates and calculate frequencies from #identical occurences
-import pandas as pd
 
 def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     """
@@ -1541,44 +1540,66 @@ def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     
     if preserve_weights:
         # Check if the frequency column exists
-        if '#identical occurences' not in df.columns:
-            raise ValueError("The DataFrame does not contain the '#identical occurences' column.")
+        freq_col_original = '#identical occurences'
+        freq_col_new = 'frequency'
+        if freq_col_original not in df.columns:
+            raise ValueError(f"The DataFrame does not contain the '{freq_col_original}' column.")
+        
+        # Ensure the frequency column is integer before any operations
+        try:
+            df[freq_col_original] = df[freq_col_original].astype(int)
+        except ValueError as e:
+            raise ValueError(f"Cannot convert '{freq_col_original}' to integer. Ensure all values are integers.") from e
         
         # Calculate total frequency before any changes
-        total_freq_before = df['#identical occurences'].sum()
+        total_freq_before = df[freq_col_original].sum()
         
         # Rename the frequency column to 'frequency'
-        df = df.rename(columns={'#identical occurences': 'frequency'})
+        df = df.rename(columns={freq_col_original: freq_col_new})
         
         # Define group columns based on the subset
         if subset is not None:
             group_cols = subset
         else:
             # If subset is None, consider all columns except 'frequency' as group columns
-            group_cols = [col for col in df.columns if col != 'frequency']
+            group_cols = [col for col in df.columns if col != freq_col_new]
+        
+        # Debug: Print the group columns being used
+        print(f"Grouping by columns: {group_cols}")
         
         # Group by the specified columns and sum the 'frequency'
-        frequency_sum = df.groupby(group_cols, as_index=False)['frequency'].sum()
+        frequency_sum = df.groupby(group_cols, as_index=False)[freq_col_new].sum()
+        
+        # Debug: Check for any NaN or negative frequencies after summing
+        if frequency_sum[freq_col_new].isnull().any():
+            raise ValueError("NaN values found in summed frequencies.")
+        if (frequency_sum[freq_col_new] < 0).any():
+            raise ValueError("Negative values found in summed frequencies.")
         
         # Retain the first occurrence of each group for other columns
+        # This step keeps the first occurrence's data and updates the frequency
         df_first = df.drop_duplicates(subset=group_cols, keep='first')
         
-        # Drop the existing 'frequency' to avoid duplication
-        df_first = df_first.drop(columns=['frequency'], errors='ignore')
+        # Drop the existing 'frequency' to avoid duplication before merging
+        df_first = df_first.drop(columns=[freq_col_new], errors='ignore')
         
         # Merge the summed frequency back to the first occurrences
-        df = pd.merge(df_first, frequency_sum, on=group_cols, how='left')
+        df = pd.merge(df_first, frequency_sum, on=group_cols, how='left', validate='one_to_one')
+        
+        # Ensure the frequency column is integer after merging
+        df[freq_col_new] = df[freq_col_new].astype(int)
         
         # Calculate total frequency after changes
-        total_freq_after = df['frequency'].sum()
+        total_freq_after = df[freq_col_new].sum()
         
         # Print frequency totals
         print(f"Total frequency before drops: {total_freq_before}")
         print(f"Total frequency after drops: {total_freq_after}")
         
-        # Optionally, verify that the frequencies match
+        # Verify that the frequencies match
         if total_freq_before != total_freq_after:
             print("Warning: Total frequencies before and after dropping duplicates do not match.")
+            print(f"Difference: {total_freq_after - total_freq_before}")
         else:
             print("Total frequencies are consistent before and after dropping duplicates.")
         
@@ -1595,6 +1616,8 @@ def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     print("=======================\n")
     
     return df
+
+
 
 
 
