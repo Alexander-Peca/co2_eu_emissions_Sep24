@@ -783,7 +783,7 @@ def drop_rows_without_target(df, target='Ewltp (g/km)'):
     df.dropna(subset=[target], inplace=True)
     return df
 
-# Define function for columns dropping
+# Define function for dropping columns
 def drop_irrelevant_columns(df, columns_dict):
     """
     Drops irrelevant columns from the given DataFrame based on categorized column lists.
@@ -795,6 +795,9 @@ def drop_irrelevant_columns(df, columns_dict):
     Returns:
     pd.DataFrame: The updated DataFrame with specified columns removed.
     """
+    
+    print("\n====== Dropping/Selecting Columns ======")
+    
     for category, columns in columns_dict.items():
         # Filter only the columns that exist in the DataFrame
         existing_columns_to_drop = [col for col in columns if col in df.columns]
@@ -806,8 +809,8 @@ def drop_irrelevant_columns(df, columns_dict):
         else:
             print(f'No columns to drop were found in the DataFrame for "{category}".')
     
-    # Optionally, display the updated DataFrame columns
-    print(f"\nColumns now present in the DataFrame: {df.columns.tolist()}")
+    # Display the updated DataFrame columns
+    print(f"Columns now present in the DataFrame: {df.columns.tolist()}")
     return df
 
 
@@ -863,6 +866,8 @@ def filter_dataframe_by_year(df, year=2018):
 
     # Remove rows where the 'Year' or 'year' column is less than the specified year
     df = df[df[year_column] >= year]
+    
+    print(f"Dropped all years prior to {year}.")
 
     return df
 
@@ -882,6 +887,9 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     Returns:
     DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
     """
+    
+    print("\n===================== Outlier Handling ============================")
+    print ("\n=========  Removing outliers from Gaussian columns  ==============")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
@@ -947,6 +955,9 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     Returns:
     DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
     """
+    
+    print ("/n=========  Removing outliers from non-Gaussian columns  ==============")
+    
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
         print("Outlier removal not applied. Returning original DataFrame.")
@@ -1068,6 +1079,9 @@ def handle_nans(df, strategy_dict):
     Returns:
     - pd.DataFrame: The DataFrame with NaNs handled as specified.
     """
+    
+    print ("/n=========  Handle NaNs  ==============")
+    
     # Make a copy to avoid modifying the original DataFrame
     df = df.copy()
     
@@ -1171,6 +1185,9 @@ def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mea
     Returns:
     - df (pd.DataFrame): The DataFrame with special NaN handling applied.
     """
+    
+    print ("/n=========  Handle NaNs in IT related Columns Erwltp and Ernedc ==============")
+    
     # Validate strategy
     if strategy not in ['mean', 'median']:
         raise ValueError("Strategy must be either 'mean' or 'median'.")
@@ -1264,6 +1281,10 @@ def encode_top_its(df, n=0):
     If n=0, encodes all IT codes.
     Returns the modified DataFrame with one-hot encoded columns added and original 'IT_' columns removed.
     """
+    
+    print ("/n=========  Encoding Categories of IT Columns (Innovative Technologies)  ==============")
+    
+    
     if n == 0:
         print("Encoding all IT codes...")
     else:
@@ -1329,49 +1350,6 @@ def encode_top_its(df, n=0):
 
 
 
-def encode_categorical_columns_old(df, exclude_prefix='IT_'):
-    """
-    One-hot encodes all unique values present in each categorical column in the DataFrame.
-    Excludes columns starting with 'exclude_prefix'.
-    
-    Parameters:
-    - df (pd.DataFrame): The input DataFrame containing categorical columns.
-    - exclude_prefix (str): Prefix of column names to exclude from encoding.
-    
-    Returns:
-    - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
-    """
-    # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
-    cat_columns = [
-        col for col in df.select_dtypes(include=['category', 'object']).columns 
-        if not col.startswith(exclude_prefix)
-    ]
-    print(f"Identified categorical columns to encode (excluding '{exclude_prefix}'): {cat_columns}")
-    
-    if not cat_columns:
-        print("No categorical columns found for encoding. Skipping one-hot encoding.")
-        return df
-
-    # Adjust categories to include only the present values in each categorical column
-    for col in cat_columns:
-        df[col] = df[col].astype('category')  # Ensure the column is of type category
-        df[col] = df[col].cat.remove_unused_categories()  # Remove categories not present in the column
-
-    # One-hot encode all categorical columns at once, ensuring only present values are encoded
-    df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=False)
-    print(f"One-hot encoding completed for columns: {cat_columns}")
-    
-    # Print the number of encoded values (columns) and the encoded values per original categorical column
-    for col in cat_columns:
-        encoded_values = df[col].cat.categories.tolist()
-        num_encoded_cols = len(encoded_values)
-        print(f"\nColumn '{col}' encoded into {num_encoded_cols} values:")
-        print(f"Encoded values: {encoded_values}")
-    
-    print("=======================\n")
-    
-    return df_encoded
-
 
 def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     """
@@ -1385,6 +1363,9 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     Returns:
     - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
     """
+    
+    print ("/n=========  Encoding Categorical Variables ==============")
+    
     # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
     cat_columns = [
         col for col in df.select_dtypes(include=['category', 'object']).columns 
@@ -1538,7 +1519,11 @@ def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     Returns:
     - pd.DataFrame: The DataFrame after processing duplicates.
     """
+    
+    # store initial count of rows
     initial_count = len(df)
+    
+    print ("/n=========  Dropping Duplicates  ==============")
     
     if preserve_weights:
         # Check if the frequency column exists
