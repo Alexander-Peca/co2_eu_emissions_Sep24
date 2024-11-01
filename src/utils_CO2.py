@@ -806,7 +806,7 @@ def drop_irrelevant_columns(df, columns_to_drop):
         print("No columns to drop were found in the DataFrame.")
 
     # Display the updated DataFrame
-    print(df.columns)
+    print(f"Columns now present in the dataframe: {df.columns.values}")
     return df
 
 # Function to identify electric cars and replace nans in column electric capacity and range with 0
