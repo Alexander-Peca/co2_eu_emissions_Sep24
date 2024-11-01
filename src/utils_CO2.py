@@ -956,7 +956,7 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
     """
     
-    print ("/n===  Removing outliers from non-Gaussian columns  ===")
+    print ("\n===  Removing outliers from non-Gaussian columns  ===")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
@@ -1080,7 +1080,7 @@ def handle_nans(df, strategy_dict):
     - pd.DataFrame: The DataFrame with NaNs handled as specified.
     """
     
-    print ("/n=========  Handle NaNs  ==============")
+    print ("\n=========  Handle NaNs  ==============")
     
     # Make a copy to avoid modifying the original DataFrame
     df = df.copy()
