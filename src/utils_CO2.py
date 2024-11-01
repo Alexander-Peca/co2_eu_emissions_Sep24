@@ -889,7 +889,7 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     """
     
     print("\n============== Outlier Handling =====================")
-    print("\n===="  Removing outliers from Gaussian columns  =====")
+    print("\n====  Removing outliers from Gaussian columns  ======")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
