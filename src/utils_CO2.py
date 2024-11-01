@@ -937,6 +937,87 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     return df
 
 
+import pandas as pd
+
+def replace_outliers_with_median_iterative(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True, max_iterations=10):
+    """
+    Iteratively replaces outliers in the specified Gaussian-distributed columns with the median value of those columns.
+    Outliers are identified using the IQR method and the process continues until no outliers remain or the maximum number of iterations is reached.
+
+    Parameters:
+    df (DataFrame): The DataFrame to operate on.
+    columns (list): The columns to check for outliers. If None, defaults to 'gaussian_cols'.
+    IQR_distance_multiplier (float): The multiplier for the IQR to define outliers. Default is 1.5.
+    apply_outlier_removal (bool): If True, applies the outlier replacement. If False, returns the original DataFrame.
+    max_iterations (int): The maximum number of iterations to perform. Default is 10.
+
+    Returns:
+    DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
+    """
+    
+    print("\n============== Outlier Handling =====================")
+    print("\n====  Removing outliers from Gaussian columns  ======")
+    
+    # Check if outlier removal is enabled
+    if not apply_outlier_removal:
+        print("Outlier replacement not applied. Returning original DataFrame.")
+        return df  # Return the original DataFrame without modifications
+    
+    # Use 'gaussian_cols' as default if columns is None
+    if columns is None:
+        try:
+            columns = gaussian_cols  # Ensure 'gaussian_cols' is defined
+        except NameError:
+            raise ValueError("Default column list 'gaussian_cols' is not defined. Please specify the 'columns' parameter.")
+    
+    # Identify which columns are present in the DataFrame
+    existing_columns = [col for col in columns if col in df.columns]
+    missing_columns = [col for col in columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Warning: The following columns are not in the DataFrame and will be skipped: {missing_columns}")
+    
+    if not existing_columns:
+        print("No valid columns found for outlier replacement. Returning original DataFrame.")
+        return df
+    
+    for iteration in range(1, max_iterations + 1):
+        print(f"\n--- Iteration {iteration} ---")
+        # Calculate the first (Q1) and third (Q3) quartiles for existing columns
+        Q1 = df[existing_columns].quantile(0.25)
+        Q3 = df[existing_columns].quantile(0.75)
+        IQR = Q3 - Q1  # Interquartile Range (IQR)
+    
+        # Define the outlier condition based on IQR
+        lower_bound = Q1 - IQR_distance_multiplier * IQR
+        upper_bound = Q3 + IQR_distance_multiplier * IQR
+        outlier_condition = ((df[existing_columns] < lower_bound) | (df[existing_columns] > upper_bound))
+    
+        # Check if there are any outliers in the current iteration
+        total_outliers = outlier_condition.sum().sum()
+        print(f"Total outliers detected in this iteration: {total_outliers}")
+        if total_outliers == 0:
+            print(f"No outliers detected. Stopping after {iteration - 1} iterations.")
+            break
+    
+        # Replace outliers with the median of each existing column
+        for col in existing_columns:
+            outliers = outlier_condition[col]
+            num_outliers = outliers.sum()
+            if num_outliers > 0:
+                median_value = df[col].median()  # Get the median value of the column
+                df.loc[outliers, col] = median_value  # Replace outliers with the median
+                print(f"Replaced {num_outliers} outliers in column '{col}' with median value {median_value}.")
+    
+        # If reached maximum iterations, notify the user
+        if iteration == max_iterations:
+            print(f"Reached maximum iterations ({max_iterations}). Some outliers may still remain.")
+    
+    print(f"\nFinal DataFrame shape after replacing outliers: {df.shape}")
+    return df
+
+
+
 # Function to remove outliers from non-Gaussian distributed columns using the IQR method for individual rows
 import numpy as np
 import pandas as pd
