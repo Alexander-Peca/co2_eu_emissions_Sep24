@@ -888,8 +888,8 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
     """
     
-    print("\n===================== Outlier Handling ============================")
-    print ("\n=========  Removing outliers from Gaussian columns  ==============")
+    print("\n============== Outlier Handling =====================")
+    print("\n===="  Removing outliers from Gaussian columns  =====")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
@@ -956,7 +956,7 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
     """
     
-    print ("/n=========  Removing outliers from non-Gaussian columns  ==============")
+    print ("/n===  Removing outliers from non-Gaussian columns  ===")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
@@ -1186,7 +1186,7 @@ def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mea
     - df (pd.DataFrame): The DataFrame with special NaN handling applied.
     """
     
-    print ("/n=========  Handle NaNs in IT related Columns Erwltp and Ernedc ==============")
+    print ("\n===  Handle NaNs in IT related Columns Erwltp and Ernedc ===")
     
     # Validate strategy
     if strategy not in ['mean', 'median']:
@@ -1282,7 +1282,7 @@ def encode_top_its(df, n=0):
     Returns the modified DataFrame with one-hot encoded columns added and original 'IT_' columns removed.
     """
     
-    print ("/n=========  Encoding Categories of IT Columns (Innovative Technologies)  ==============")
+    print ("\n===  Encoding Categories of IT Columns (Innovative Technologies)  ===")
     
     
     if n == 0:
@@ -1364,7 +1364,7 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
     """
     
-    print ("/n=========  Encoding Categorical Variables ==============")
+    print ("\n======  Encoding Categorical Variables ===========")
     
     # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
     cat_columns = [
@@ -1523,7 +1523,7 @@ def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     # store initial count of rows
     initial_count = len(df)
     
-    print ("/n=========  Dropping Duplicates  ==============")
+    print ("\n=========  Dropping Duplicates  ==============")
     
     if preserve_weights:
         # Check if the frequency column exists
