@@ -784,30 +784,32 @@ def drop_rows_without_target(df, target='Ewltp (g/km)'):
     return df
 
 # Define function for columns dropping
-def drop_irrelevant_columns(df, columns_to_drop):
+def drop_irrelevant_columns(df, columns_dict):
     """
-    Drops irrelevant columns from the given DataFrame.
+    Drops irrelevant columns from the given DataFrame based on categorized column lists.
 
     Parameters:
     df (pd.DataFrame): The DataFrame from which to drop columns.
-    columns_to_drop (list): List of columns to drop from the DataFrame.
+    columns_dict (dict): Dictionary where keys are category names and values are lists of columns to drop.
 
     Returns:
     pd.DataFrame: The updated DataFrame with specified columns removed.
     """
-    # Filter only the columns that exist in the DataFrame
-    existing_columns_to_drop = [col for col in columns_to_drop if col in df.columns]
-
-    # Drop the existing columns
-    if existing_columns_to_drop:
-        df.drop(existing_columns_to_drop, axis=1, inplace=True)
-        print(f"Dropped columns: {existing_columns_to_drop}")
-    else:
-        print("No columns to drop were found in the DataFrame.")
-
-    # Display the updated DataFrame
-    print(f"Columns now present in the dataframe: {df.columns.values}")
+    for category, columns in columns_dict.items():
+        # Filter only the columns that exist in the DataFrame
+        existing_columns_to_drop = [col for col in columns if col in df.columns]
+        
+        # Drop the existing columns
+        if existing_columns_to_drop:
+            df.drop(existing_columns_to_drop, axis=1, inplace=True)
+            print(f'Columns "{category}" have been dropped: {existing_columns_to_drop}')
+        else:
+            print(f'No columns to drop were found in the DataFrame for "{category}".')
+    
+    # Optionally, display the updated DataFrame columns
+    print(f"\nColumns now present in the DataFrame: {df.columns.tolist()}")
     return df
+
 
 # Function to identify electric cars and replace nans in column electric capacity and range with 0
 def process_electric_car_data(df, replace_nan=False, make_electric_car_column=True):
