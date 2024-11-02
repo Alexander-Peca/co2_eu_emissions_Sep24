@@ -578,35 +578,6 @@ def load_data_local(file_name, file_path = data_path):
 
     # Check file extension and load accordingly
     if file_name.endswith('.parquet'):
-        print(f"Loading parquet file from local path: {full_file_path}")
-        table = pq.read_table(full_file_path)
-        df = table.to_pandas()  # Convert to pandas DataFrame
-    elif file_name.endswith('.csv'):
-        print(f"Loading csv file from local path: {full_file_path}")
-        df = pd.read_csv(full_file_path)  # Read CSV into pandas DataFrame
-    else:
-        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
-
-    return df
-
-
-# Define Loading data function for the local drive and dont output local path
-def load_data_local_anon(file_name, file_path = data_path):
-    """
-    Loads a parquet or csv file from the local directory.
-
-    Parameters:
-    file_name (str): The name of the file to load.
-    file_path (str): The path to the directory where the file is located.
-
-    Returns:
-    pd.DataFrame: The loaded data as a pandas DataFrame.
-    """
-    # Full file path
-    full_file_path = os.path.join(file_path, file_name)
-
-    # Check file extension and load accordingly
-    if file_name.endswith('.parquet'):
         print(f"Loaded parquet file from local path.")
         table = pq.read_table(full_file_path)
         df = table.to_pandas()  # Convert to pandas DataFrame
@@ -617,6 +588,7 @@ def load_data_local_anon(file_name, file_path = data_path):
         raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
 
     return df
+
 
 # dataset to be loaded must be in google-drive (shared: Project_CO2_DS/Data/EU Data)
 # Add a shortcut by clicking to the 3 dots (file_name) to the left, click "Organise"
@@ -1593,7 +1565,7 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
         raise FileNotFoundError(f"The file '{full_path}' does not exist.")
 
     # Load the data using the existing load function
-    data = load_data_local_anon(full_path)
+    data = load_data_local(full_path)
     print(f"Loaded file: '{filename}'")
     return data
 
