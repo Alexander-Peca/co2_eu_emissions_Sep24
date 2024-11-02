@@ -804,7 +804,7 @@ def drop_irrelevant_columns(df, columns_dict):
         
         # Drop the existing columns
         if existing_columns_to_drop:
-            df.drop(existing_columns_to_drop, axis=1, inplace=True)
+            df = df.drop(existing_columns_to_drop, axis=1)
             print(f'Columns "{category}" have been dropped: {existing_columns_to_drop}')
         else:
             print(f'No columns to drop were found in the DataFrame for "{category}".')
@@ -1161,7 +1161,7 @@ def handle_nans(df, strategy_dict):
     - pd.DataFrame: The DataFrame with NaNs handled as specified.
     """
     
-    print ("\n=========  Handle NaNs  ==============")
+    print("\n=========  Handle NaNs  ==============")
     
     # Make a copy to avoid modifying the original DataFrame
     df = df.copy()
@@ -1179,13 +1179,26 @@ def handle_nans(df, strategy_dict):
         invalid_str = ', '.join([f"{col}: {strat}" for col, strat in invalid])
         raise ValueError(f"Invalid strategies provided for columns: {invalid_str}. Valid strategies are 'drop', 'mean', 'median', 'mode', 'zero', 'leave_as_nan'.")
     
-    # Check if all columns exist in the DataFrame
+    # Identify columns specified in strategy_dict that are not in the DataFrame
     missing_cols = [col for col in strategy_dict.keys() if col not in df.columns]
     if missing_cols:
-        raise ValueError(f"The following columns are not in the DataFrame: {missing_cols}")
+        print(f"WARNING: The following columns specified in strategy_dict are not in the DataFrame and will be skipped: {missing_cols}")
+    
+    # Identify columns in the DataFrame that are not specified in strategy_dict
+    unused_cols = [col for col in df.columns if col not in strategy_dict]
+    if unused_cols:
+        print(f"WARNING: The following columns are in the DataFrame but not specified in strategy_dict and will be left unchanged: {unused_cols}")
+    
+    # Proceed only with columns that are present in both
+    valid_cols = [col for col in strategy_dict.keys() if col in df.columns]
+    
+    if not valid_cols:
+        print("No valid columns to process. Exiting function.")
+        print("=======================\n")
+        return df  # Return the copied DataFrame unmodified
     
     # Handle drop strategies first
-    drop_cols = [col for col, strategy in strategy_dict.items() if strategy == 'drop']
+    drop_cols = [col for col in valid_cols if strategy_dict[col] == 'drop']
     if drop_cols:
         # Count NaNs in drop_cols before dropping
         na_counts_before = df[drop_cols].isna().sum()
@@ -1200,7 +1213,8 @@ def handle_nans(df, strategy_dict):
         print()  # Add a newline for readability
     
     # Handle other strategies
-    for col, strategy in strategy_dict.items():
+    for col in valid_cols:
+        strategy = strategy_dict[col]
         if strategy == 'drop':
             continue  # Already handled drop strategies
         
@@ -1213,14 +1227,14 @@ def handle_nans(df, strategy_dict):
                 df[col].fillna(fill_value, inplace=True)
                 print(f"Column '{col}': Replaced {na_before} NaN(s) with mean ({fill_value}).")
             else:
-                raise TypeError(f"Cannot use 'mean' strategy on non-numeric column '{col}'.")
+                print(f"WARNING: Cannot use 'mean' strategy on non-numeric column '{col}'. NaNs left as is.")
         elif strategy == 'median':
             if pd.api.types.is_numeric_dtype(df[col]):
                 fill_value = df[col].median()
                 df[col].fillna(fill_value, inplace=True)
                 print(f"Column '{col}': Replaced {na_before} NaN(s) with median ({fill_value}).")
             else:
-                raise TypeError(f"Cannot use 'median' strategy on non-numeric column '{col}'.")
+                print(f"WARNING: Cannot use 'median' strategy on non-numeric column '{col}'. NaNs left as is.")
         elif strategy == 'mode':
             # Mode can return multiple values; take the first one
             mode_series = df[col].mode()
@@ -1235,17 +1249,18 @@ def handle_nans(df, strategy_dict):
                 df[col].fillna(0, inplace=True)
                 print(f"Column '{col}': Replaced {na_before} NaN(s) with zero (0).")
             else:
-                raise TypeError(f"Cannot use 'zero' strategy on non-numeric column '{col}'.")
+                print(f"WARNING: Cannot use 'zero' strategy on non-numeric column '{col}'. NaNs left as is.")
         elif strategy == 'leave_as_nan':
             # No action needed; NaNs are left as is
             print(f"Column '{col}': Left {na_before} NaN(s) as is.")
         else:
             # This should not happen due to earlier validation
-            raise ValueError(f"Unhandled strategy '{strategy}' for column '{col}'.")
+            print(f"WARNING: Unhandled strategy '{strategy}' for column '{col}'. No changes made.")
         
     print("=======================\n")
     
     return df
+
 
 
 
