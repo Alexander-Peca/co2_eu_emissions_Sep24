@@ -997,7 +997,7 @@ import pandas as pd
 def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True):
     """
     Removes outliers in specified non-Gaussian distributed columns using the IQR method for individual rows.
-    Outliers are capped to the lower and upper bounds defined by the IQR.
+    Outliers are capped to the lower and upper bounds defined by the IQR, modifying the original DataFrame.
 
     Parameters:
     df (DataFrame): The DataFrame to operate on.
@@ -1009,12 +1009,12 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
     DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
     """
     
-    print ("\n===  Removing outliers from non-Gaussian columns  ===")
+    print("\n===  Removing outliers from non-Gaussian columns  ===")
     
     # Check if outlier removal is enabled
     if not apply_outlier_removal:
         print("Outlier removal not applied. Returning original DataFrame.")
-        return df.copy()  # Return a copy of the original DataFrame without modifications
+        return df  # Return the original DataFrame without modifications
 
     # Use 'non_gaussian_cols' as default if columns is None
     if columns is None:
@@ -1032,10 +1032,7 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
 
     if not existing_columns:
         print("No valid columns found for outlier removal. Returning original DataFrame.")
-        return df.copy()
-
-    # Create a copy of the DataFrame to store results
-    outliers_removed = df.copy()
+        return df
 
     # Loop through each existing column to remove outliers
     for col in existing_columns:
@@ -1048,21 +1045,21 @@ def iqr_outlier_removal(df, columns=None, IQR_distance_multiplier=1.5, apply_out
         lower_bound = Q1 - IQR_distance_multiplier * IQR
         upper_bound = Q3 + IQR_distance_multiplier * IQR
 
-        # Identify outliers
+        # Identify and cap outliers at the lower and upper bounds
         lower_outliers = df[col] < lower_bound
         upper_outliers = df[col] > upper_bound
         total_outliers = lower_outliers.sum() + upper_outliers.sum()
 
-        # Cap the outliers at the lower and upper bounds
-        outliers_removed[col] = np.where(df[col] < lower_bound, lower_bound,
-                                         np.where(df[col] > upper_bound, upper_bound, df[col]))
+        df.loc[lower_outliers, col] = lower_bound
+        df.loc[upper_outliers, col] = upper_bound
 
         print(f"Capped {total_outliers} outliers in column '{col}' between {lower_bound} and {upper_bound}.")
 
     # Print the shape of the DataFrame after capping outliers
-    print(f"DataFrame shape after capping outliers in non-Gaussian columns: {outliers_removed.shape}")
+    print(f"DataFrame shape after capping outliers in non-Gaussian columns: {df.shape}")
 
-    return outliers_removed  # Return the modified DataFrame
+    return df  # Return the modified DataFrame
+
 
 
 # Generate Dictionary for handling NaNs
@@ -1888,3 +1885,351 @@ def plot_normalized_histograms(
     # Adjust layout
     plt.tight_layout()
     plt.show()
+    
+    
+
+import numpy as np
+import pandas as pd
+from scipy.stats import boxcox, boxcox_normmax
+
+def expand_by_frequency(series, frequency):
+    """
+    Expands a series based on given frequency values, repeating each element
+    according to its specified frequency.
+
+    Parameters:
+    - series: pandas.Series, the series to expand.
+    - frequency: pandas.Series, the frequency (can be float) for each element in `series`.
+
+    Returns:
+    - A new Series with each value repeated according to its frequency (rounded to nearest integer).
+    """
+    # Remove NaNs from series only
+    series = series.dropna()
+    frequency = frequency.loc[series.index].round().astype(int)
+    
+    expanded_series = series.repeat(frequency).reset_index(drop=True)
+    return expanded_series
+
+def weighted_quantile(values, quantiles, sample_weight):
+    """
+    Computes weighted quantiles for the values in `values`.
+
+    Parameters:
+    - values: Array-like structure containing the data values.
+    - quantiles: List of quantile values to compute (e.g., [0.25, 0.75]).
+    - sample_weight: Array-like structure containing the frequency or weight (can be float) for each value in `values`.
+
+    Returns:
+    - A list of calculated quantile values in the same order as `quantiles`.
+    """
+    # Remove NaNs from values only
+    values = np.array(values)
+    sample_weight = np.array(sample_weight)
+    valid_indices = np.isfinite(values)
+    values, sample_weight = values[valid_indices], np.round(sample_weight[valid_indices]).astype(int)
+    
+    sorter = np.argsort(values)
+    values = values[sorter]
+    sample_weight = sample_weight[sorter]
+    
+    weighted_cumsum = np.cumsum(sample_weight)
+    total_weight = weighted_cumsum[-1]
+    
+    quantile_values = []
+    for q in quantiles:
+        threshold = q * total_weight
+        quantile_values.append(values[weighted_cumsum >= threshold][0])
+        
+    return quantile_values
+
+def weighted_skewness(series, frequency):
+    """
+    Calculates the weighted skewness of a series, reflecting distribution asymmetry.
+
+    Parameters:
+    - series: Array-like structure with values to calculate skewness.
+    - frequency: Array-like structure with the frequency or weight (can be float) for each value.
+
+    Returns:
+    - The weighted skewness as a floating-point number.
+    """
+    # Remove NaNs from series only
+    series = series.dropna()
+    frequency = frequency.loc[series.index]
+    
+    mean = np.average(series, weights=frequency)
+    variance = np.average((series - mean) ** 2, weights=frequency)
+    skewness = np.average((series - mean) ** 3, weights=frequency) / (variance ** 1.5)
+    return skewness
+
+def weighted_kurtosis(series, frequency):
+    """
+    Calculates the weighted kurtosis of a series, indicating distribution tail heaviness.
+
+    Parameters:
+    - series: Array-like structure with values to calculate kurtosis.
+    - frequency: Array-like structure with the frequency or weight (can be float) for each value.
+
+    Returns:
+    - The weighted kurtosis as a floating-point number, centered around 0 for a normal distribution.
+    """
+    # Remove NaNs from series only
+    series = series.dropna()
+    frequency = frequency.loc[series.index]
+    
+    mean = np.average(series, weights=frequency)
+    variance = np.average((series - mean) ** 2, weights=frequency)
+    kurtosis = np.average((series - mean) ** 4, weights=frequency) / (variance ** 2) - 3
+    return kurtosis
+
+def optimal_boxcox_lambda_weighted(series, frequency, coarse=False):
+    """
+    Calculates the optimal Box-Cox lambda for a weighted series by expanding 
+    the series first based on frequency and then determining the lambda.
+
+    Parameters:
+    - series: pandas.Series, the series to apply Box-Cox transformation to.
+    - frequency: pandas.Series, the frequency or weight (can be float) for each value in `series`.
+    - coarse: bool, if True, performs a quick coarse estimation of lambda using `boxcox_normmax`.
+
+    Returns:
+    - The optimal lambda value for the Box-Cox transformation.
+    """
+    # Step 1: Remove invalid frequencies and series values
+    frequency = frequency.loc[series.index]
+    frequency = frequency.round().astype(int)
+    frequency[frequency < 1] = 1  # Set minimum frequency to 1
+
+    # Remove series values less than 1 (since they are invalid in your context)
+    valid_series = series >= 1
+    series = series[valid_series]
+    frequency = frequency[valid_series]
+
+    # Debug: Check for values less than 1 in series
+    print("After filtering, values < 1 in series:", (series < 1).sum())
+
+    # Step 2: Expand the series based on frequency
+    expanded_series = expand_by_frequency(series, frequency)
+
+    # Step 3: Remove NaNs, non-positive values, and infinite values
+    expanded_series = expanded_series[np.isfinite(expanded_series)]  # Remove infinite values
+    expanded_series = expanded_series[expanded_series >= 1]  # Keep values >= 1
+    expanded_series = expanded_series.dropna()  # Drop NaNs
+
+    # Convert expanded_series to float64 for higher precision
+    expanded_series = expanded_series.astype(np.float64)
+
+    # Debug: Check for values less than 1 in expanded series
+    print("Expanded series statistics after filtering:")
+    print(expanded_series.describe())
+    print("Values < 1 in expanded series after filtering:", (expanded_series < 1).sum())
+
+    # Step 4: Check if expanded_series is empty
+    if expanded_series.empty:
+        raise ValueError("The expanded series is empty after filtering. Cannot compute Box-Cox lambda.")
+
+    # Step 5: Compute the optimal lambda for Box-Cox transformation
+    if coarse:
+        # Using the 'mle' method for a robust estimation
+        optimal_lambda = boxcox_normmax(expanded_series, method='mle')
+    else:
+        # Fine-tuned estimation using full Box-Cox optimization
+        _, optimal_lambda = boxcox(expanded_series)
+
+    return optimal_lambda
+
+
+
+from scipy.stats import boxcox
+
+def apply_boxcox_transformation_df(df, lambda_dict, prefix='boxcox_', inplace=False):
+    """
+    Applies the Box-Cox transformation to specified columns in a DataFrame using provided lambda values.
+    Drops all rows where any of the specified columns have values less than 1.
+    
+    Parameters:
+    - df: pandas.DataFrame, the DataFrame containing the data.
+    - lambda_dict: dict, a dictionary where keys are column names and values are lambda parameters.
+    - prefix: str, a prefix to add to the transformed column names. Default is 'boxcox_'.
+    - inplace: bool, if True, modifies the DataFrame in place. If False, returns a new DataFrame.
+    
+    Returns:
+    - pandas.DataFrame: The DataFrame with transformed columns (if inplace=False).
+    """
+    # Check that all specified columns exist in the DataFrame
+    missing_cols = [col for col in lambda_dict.keys() if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"The following columns are not in the DataFrame: {missing_cols}")
+    
+    # Create a mask where all specified columns have values >= 1
+    valid_mask = df[list(lambda_dict.keys())].ge(1).all(axis=1)
+    
+    # Drop rows where any of the specified columns have values < 1
+    if inplace:
+        df.drop(index=df.index[~valid_mask], inplace=True)
+    else:
+        df = df.loc[valid_mask].copy()
+    
+    # Apply the Box-Cox transformation to each specified column
+    for col, lambda_value in lambda_dict.items():
+        # Get the column data
+        series = df[col]
+        
+        # Ensure the data is strictly positive (greater than zero)
+        if (series <= 0).any():
+            raise ValueError(f"Column '{col}' contains non-positive values after filtering.")
+        
+        # Handle NaNs and infinite values
+        valid_index = series.index[series.notna() & np.isfinite(series)]
+        valid_series = series.loc[valid_index]
+        
+        # Apply the Box-Cox transformation
+        transformed_data = boxcox(valid_series, lmbda=lambda_value)
+        
+        # Create a transformed series with the same index as the valid data
+        transformed_series = pd.Series(data=transformed_data, index=valid_index)
+        
+        # Insert the transformed data into the DataFrame
+        transformed_col_name = f"{prefix}{col}"
+        df[transformed_col_name] = np.nan  # Initialize with NaN
+        df.loc[valid_index, transformed_col_name] = transformed_series
+    
+    if not inplace:
+        return df
+
+
+# Function for Gaussian columns: Replacing outliers with median, with weighted option
+def replace_outliers_with_median_weighted(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True,
+                                          use_weighted_quartiles=False, weight_column=None):
+    """
+    Replaces outliers in specified Gaussian-distributed columns with the median, with an option to use weighted quartiles.
+    Outliers are identified using the IQR method.
+
+    Parameters:
+    - df (DataFrame): The DataFrame to operate on.
+    - columns (list): The columns to check for outliers. If None, defaults to 'gaussian_cols'.
+    - IQR_distance_multiplier (float): The multiplier for the IQR to define outliers. Default is 1.5.
+    - apply_outlier_removal (bool): If True, applies the outlier replacement process. If False, returns the original DataFrame.
+    - use_weighted_quartiles (bool): If True, uses weighted quartiles for IQR calculation. Default is False.
+    - weight_column (str): The name of the column containing weights for weighted quartile calculation.
+
+    Returns:
+    - DataFrame: The modified DataFrame with outliers replaced by median values (if applied).
+    """
+    
+    print("\n===  Replacing outliers in Gaussian columns with median  ===")
+    
+    if not apply_outlier_removal:
+        print("Outlier replacement not applied. Returning original DataFrame.")
+        return df
+
+    if columns is None:
+        try:
+            columns = gaussian_cols
+        except NameError:
+            raise ValueError("Default column list 'gaussian_cols' is not defined. Please specify the 'columns' parameter.")
+
+    existing_columns = [col for col in columns if col in df.columns]
+    if not existing_columns:
+        print("No valid columns found for outlier replacement. Returning original DataFrame.")
+        return df
+
+    if use_weighted_quartiles and weight_column is None:
+        raise ValueError("When 'use_weighted_quartiles' is True, 'weight_column' must be specified.")
+
+    for col in existing_columns:
+        if use_weighted_quartiles:
+            Q1, Q3 = weighted_quantile(df[col], [0.25, 0.75], df[weight_column])
+        else:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+
+        IQR = Q3 - Q1
+        lower_bound = Q1 - IQR_distance_multiplier * IQR
+        upper_bound = Q3 + IQR_distance_multiplier * IQR
+
+        outlier_condition = (df[col] < lower_bound) | (df[col] > upper_bound)
+        num_outliers = outlier_condition.sum()
+
+        # Calculate median value (weighted or unweighted)
+        if use_weighted_quartiles:
+            median_value = weighted_quantile(df[col], [0.5], df[weight_column])[0]
+        else:
+            median_value = df[col].median()
+
+        df.loc[outlier_condition, col] = median_value
+        print(f"Replaced {num_outliers} outliers in column '{col}' with median value {median_value}.")
+
+    print(f"DataFrame shape after replacing outliers in Gaussian columns: {df.shape}")
+
+    return df
+
+
+
+# Function for non-Gaussian columns: Capping outliers with weighted option
+def iqr_outlier_removal_weighted(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True, 
+                                 use_weighted_quartiles=False, weight_column=None):
+    """
+    Removes outliers in specified non-Gaussian distributed columns using the IQR method for individual rows.
+    Outliers are capped to the lower and upper bounds defined by the IQR, with an option to use weighted quartiles.
+
+    Parameters:
+    - df (DataFrame): The DataFrame to operate on.
+    - columns (list): The columns to check for outliers. If None, defaults to 'non_gaussian_cols'.
+    - IQR_distance_multiplier (float): The multiplier for the IQR to define outliers. Default is 1.5.
+    - apply_outlier_removal (bool): If True, applies the outlier removal process. If False, returns the original DataFrame.
+    - use_weighted_quartiles (bool): If True, uses weighted quartiles for IQR calculation. Default is False.
+    - weight_column (str): The name of the column containing weights for weighted quartile calculation.
+
+    Returns:
+    - DataFrame: The modified DataFrame with outliers capped at the lower and upper bounds (if applied).
+    """
+    
+    print("\n===  Removing outliers from non-Gaussian columns  ===")
+    
+    if not apply_outlier_removal:
+        print("Outlier removal not applied. Returning original DataFrame.")
+        return df
+
+    if columns is None:
+        try:
+            columns = non_gaussian_cols
+        except NameError:
+            raise ValueError("Default column list 'non_gaussian_cols' is not defined. Please specify the 'columns' parameter.")
+
+    existing_columns = [col for col in columns if col in df.columns]
+    if not existing_columns:
+        print("No valid columns found for outlier removal. Returning original DataFrame.")
+        return df
+
+    if use_weighted_quartiles and weight_column is None:
+        raise ValueError("When 'use_weighted_quartiles' is True, 'weight_column' must be specified.")
+
+    for col in existing_columns:
+        if use_weighted_quartiles:
+            Q1, Q3 = weighted_quantile(df[col], [0.25, 0.75], df[weight_column])
+        else:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+
+        IQR = Q3 - Q1
+        lower_bound = Q1 - IQR_distance_multiplier * IQR
+        upper_bound = Q3 + IQR_distance_multiplier * IQR
+
+        lower_outliers = df[col] < lower_bound
+        upper_outliers = df[col] > upper_bound
+        total_outliers = lower_outliers.sum() + upper_outliers.sum()
+
+        df.loc[lower_outliers, col] = lower_bound
+        df.loc[upper_outliers, col] = upper_bound
+
+        print(f"Capped {total_outliers} outliers in column '{col}' between {lower_bound} and {upper_bound}.")
+
+    print(f"DataFrame shape after capping outliers in non-Gaussian columns: {df.shape}")
+
+    return df
+
+
+
+
