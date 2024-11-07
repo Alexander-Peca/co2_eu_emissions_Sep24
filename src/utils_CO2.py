@@ -154,6 +154,164 @@ def count_missing_values2(df, columns):
 
     return pd.DataFrame(results)
 
+
+################### Function(s) for Initial Processing of Raw Data #########################
+
+def optimize_dtypes(df):
+    """
+    Optimize the data types of a pandas DataFrame to reduce memory usage.
+
+    This function performs the following optimizations:
+    - Converts all object type columns to the 'category' dtype.
+    - Downcasts integer columns to the smallest possible integer subtype.
+    - Downcasts float columns to the smallest possible float subtype.
+
+    It also prints the total memory usage of the DataFrame before and after optimization,
+    as well as the number of columns converted for each data type.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame to optimize.
+
+    Returns:
+    pandas.DataFrame: The optimized DataFrame.
+    """
+    # Calculate total memory usage before optimization
+    before_mem = df.memory_usage(deep=True).sum()
+    print(f"Total memory usage before optimization: {before_mem / 1024**2:.2f} MB")
+    
+    # Convert all object type to category
+    obj_cols = df.select_dtypes(include="object").columns
+    num_obj = len(obj_cols)
+    if num_obj > 0:
+        df[obj_cols] = df[obj_cols].astype("category")
+        print(f"Converted {num_obj} object column{'s' if num_obj > 1 else ''} to 'category' dtype.")
+    else:
+        print("No object columns to convert to 'category' dtype.")
+    
+    # Downcast integer columns in place
+    int_cols = df.select_dtypes(include='int').columns
+    num_int_before = len(int_cols)
+    if num_int_before > 0:
+        df[int_cols] = df[int_cols].apply(pd.to_numeric, downcast='integer')
+        print(f"Downcasted {num_int_before} integer column{'s' if num_int_before > 1 else ''}.")
+    else:
+        print("No integer columns to downcast.")
+    
+    # Downcast float columns in place
+    float_cols = df.select_dtypes(include='float').columns
+    num_float_before = len(float_cols)
+    if num_float_before > 0:
+        df[float_cols] = df[float_cols].apply(pd.to_numeric, downcast='float')
+        print(f"Downcasted {num_float_before} float column{'s' if num_float_before > 1 else ''}.")
+    else:
+        print("No float columns to downcast.")
+    
+    # Calculate total memory usage after optimization
+    after_mem = df.memory_usage(deep=True).sum()
+    print(f"Total memory usage after optimization: {after_mem / 1024**2:.2f} MB")
+    
+    return df
+
+
+
+def check_missing_value_markers(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Checks and counts different representations of missing values in each column of a DataFrame.
+
+    This function iterates through each column of the provided DataFrame and counts the occurrences
+    of various missing value indicators, including `np.nan`, `pd.NA`, `-99`, and the string 
+    representation `"-99"`. The counts are aggregated based on the data type of each column to 
+    ensure accurate identification of missing values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to be analyzed for missing value representations.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the counts of each missing value representation for every column.
+        The resulting DataFrame has the following columns:
+            - 'Column': Name of the original DataFrame column.
+            - 'np.nan': Count of `np.nan` values.
+            - 'pd.NA': Count of `pd.NA` values.
+            - '-99': Count of `-99` numeric values.
+            - '"-99"': Count of `"-99"` string values.
+    """
+    # Initialize a list to store the counts for each column
+    counts_list = []
+    
+    # Iterate through each column in the DataFrame
+    for col in df.columns:
+        data = df[col]
+        
+        # Initialize counts for different missing value representations
+        nan_count = 0
+        pd_na_count = 0
+        minus_99_count = 0
+        str_minus_99_count = 0
+
+        # Calculate total missing values (np.nan and pd.NA)
+        total_missing = data.isna().sum()
+        
+        # Handle numeric columns (floats and integers)
+        if pd.api.types.is_numeric_dtype(data):
+            # Count of np.nan values
+            nan_count = total_missing
+            
+            # Count occurrences of -99
+            minus_99_count = (data == -99).sum()
+        
+        # Handle categorical columns
+        elif pd.api.types.is_categorical_dtype(data):
+            # Count of pd.NA values
+            pd_na_count = total_missing
+            
+            # Count occurrences of "-99" as a string
+            str_minus_99_count = (data == "-99").sum()
+        
+        # Handle object (string) columns
+        elif pd.api.types.is_object_dtype(data):
+            # Recalculate total missing values including np.nan, pd.NA, and None
+            total_missing = data.isna().sum()
+            
+            # Convert data to a NumPy array for element-wise comparison
+            values = data.to_numpy()
+    
+            # Create masks to differentiate between np.nan and pd.NA
+            nan_mask = pd.isna(values) & (values != pd.NA)
+            pd_na_mask = pd.isna(values) & (values == pd.NA)
+    
+            # Count np.nan and pd.NA values
+            nan_count = nan_mask.sum()
+            pd_na_count = pd_na_mask.sum()
+            
+            # Count occurrences of -99 (as numeric) and "-99" (as string)
+            minus_99_count = (data == -99).sum()
+            str_minus_99_count = (data == "-99").sum()
+        
+        else:
+            # For other data types, consider total missing as np.nan
+            nan_count = total_missing
+        
+        # Append the counts for the current column to the list
+        counts_list.append({
+            'Column': col,
+            'np.nan': nan_count,
+            'pd.NA': pd_na_count,
+            '-99': minus_99_count,
+            '"-99"': str_minus_99_count
+        })
+    
+    # Convert the list of counts to a DataFrame for better readability
+    counts_df = pd.DataFrame(counts_list)
+    
+    return counts_df
+
+
+################### Functions for Cleanup of Categorical valuse ##########################
+
         
 # Function to rename categorical values using mappings
 def rename_catval(df, attribute, mappings):
