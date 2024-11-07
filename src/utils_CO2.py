@@ -214,7 +214,7 @@ def optimize_dtypes(df):
 
 
 
-def check_missing_value_markers(df: pd.DataFrame) -> pd.DataFrame:
+def check_missing_value_markers(df):
     """
     Checks and counts different representations of missing values in each column of a DataFrame.
 
@@ -308,6 +308,96 @@ def check_missing_value_markers(df: pd.DataFrame) -> pd.DataFrame:
     counts_df = pd.DataFrame(counts_list)
     
     return counts_df
+
+
+
+
+def optimize_nan_handling(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Optimizes a pandas DataFrame by standardizing missing value representations and optimizing data types.
+
+    This function performs the following operations:
+    - Replaces various representations of missing values (-99, "-99") with standardized missing indicators (`np.nan` for numerical columns and `pd.NA` for categorical columns).
+    - Converts all numerical columns to `float32` to handle `np.nan` values efficiently.
+    - Converts specific integer columns ('ID' and 'year') to pandas' nullable integer type `Int64` to accommodate missing values.
+    - Optimizes categorical and object (string) columns by replacing missing value indicators and ensuring appropriate data types.
+    - Provides memory usage statistics before and after optimization to demonstrate the effectiveness of the changes.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to be optimized for missing value consistency and memory usage.
+
+    Returns
+    -------
+    pd.DataFrame
+        The optimized DataFrame with standardized missing value representations and optimized data types.
+    """
+    # Calculate total memory usage before optimization
+    before_mem = df.memory_usage(deep=True).sum()
+    print(f"Total memory usage before optimization: {before_mem / 1024**2:.2f} MB")
+    
+    # Identify all numerical columns (both integer and float), excluding 'ID' and 'year'
+    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+    num_cols = [col for col in num_cols if col not in ['ID', 'year']]
+    print(f"Numerical columns to be converted: {num_cols}")
+    
+    # Replace -99 with np.nan and convert numerical columns to float32
+    for col in num_cols:
+        # Replace -99 with np.nan
+        df[col] = df[col].replace(-99, np.nan)
+        # Convert to float32 to handle np.nan and reduce memory usage
+        df[col] = df[col].astype('float32')
+        print(f"Column '{col}' converted to float32.")
+        
+    # Handle 'ID' and 'year' columns
+    for col in ['ID', 'year']:
+        # Replace -99 with np.nan to mark missing values
+        df[col] = df[col].replace(-99, np.nan)
+        # Convert to pandas nullable integer type to accommodate np.nan
+        df[col] = df[col].astype('Int64')
+        print(f"Column '{col}' processed for missing values with Int64 dtype.")
+    
+    # Identify all categorical columns
+    cat_cols = df.select_dtypes(include=['category']).columns.tolist()
+    print(f"Category columns: {cat_cols}")
+    
+    for col in cat_cols:
+        # Convert to object type to perform replacements
+        df[col] = df[col].astype('object')
+        # Replace string representation '-99' with np.nan
+        df[col] = df[col].replace('-99', np.nan)
+        # Replace numeric -99 with np.nan
+        df[col] = df[col].replace(-99, np.nan)
+        # Convert back to category dtype
+        df[col] = df[col].astype('category')
+        print(f"Column '{col}' processed for missing values.")
+    
+    # Identify all object (string) columns
+    obj_cols = df.select_dtypes(include=['object']).columns.tolist()
+    print(f"Object columns: {obj_cols}")
+    
+    for col in obj_cols:
+        # Replace string representation '-99' with np.nan
+        df[col] = df[col].replace('-99', np.nan)
+        # Replace numeric -99 with np.nan
+        df[col] = df[col].replace(-99, np.nan)
+        print(f"Column '{col}' processed for missing values.")
+    
+    # Display data types after conversion
+    print("\nData types after conversion:")
+    print(df.dtypes)
+    
+    # Calculate total memory usage after optimization
+    after_mem = df.memory_usage(deep=True).sum()
+    print(f"\nTotal memory usage after optimization: {after_mem / 1024**2:.2f} MB")
+    
+    # Calculate and display the memory usage difference
+    memory_difference = after_mem - before_mem
+    print(f"Memory usage difference: {memory_difference / 1024**2:.2f} MB")
+    
+    return df
+
 
 
 ################### Functions for Cleanup of Categorical valuse ##########################
