@@ -399,9 +399,9 @@ def optimize_nan_handling(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-
-################### Functions for Cleanup of Categorical valuse ##########################
-
+##################################################################################################
+################### Functions for Cleanup of Categorical valuse ##################################
+##################################################################################################
         
 # Function to rename categorical values using mappings
 def rename_catval(df, attribute, mappings):
@@ -543,18 +543,382 @@ def rename_catval_mp(df: pd.DataFrame, mapping_list: list) -> pd.DataFrame:
     
     return df
 
+##################################################################################################
+################# Functions for preprocessing column IT (Innovative Technologies) ################
+##################################################################################################
 
 
+# Filter valid IT codes (Type Approval codes (TAC)) and move them from invalid to valid
+def filter_and_split_valid_tacs(df):
+    """
+    Filters and splits valid and invalid TACs from the 'IT_invalid' column within the DataFrame.
+
+    The function performs the following:
+    - Identifies valid TAC entries based on the defined regex pattern.
+    - Assigns valid TACs to a new column 'IT_valid'.
+    - Assigns invalid or improperly formatted TACs to a new column 'IT_invalid'.
+    - Converts 'IT_valid' and 'IT_invalid' columns to 'category' dtype.
+    - Prints summary statistics, including unique counts before and after processing.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame containing the 'IT_invalid' column.
+
+    Returns:
+    pd.DataFrame: The updated DataFrame with 'IT_valid' and 'IT_invalid' columns.
+    """
+    # Ensure 'IT_invalid' is of string type (object) to handle np.nan
+    IT_invalid_str = df['IT_invalid'].astype('object')
+
+    # Define regex pattern for valid TACs (up to 5)
+    tac_pattern = (
+        r'^(?:e(?:[1-9]|[1-2][0-9]|3[0-5])\s(?:[1-9]|[1-3][0-9]|40))'
+        r'(?:\s(?:e(?:[1-9]|[1-2][0-9]|3[0-5])\s(?:[1-9]|[1-3][0-9]|40))){0,4}$'
+    )
+
+    # Identify valid TACs, ensuring no NaN values
+
+    is_valid = IT_invalid_str.str.match(tac_pattern).fillna(False)
+
+    # Initialize 'IT_valid' and 'IT_invalid' with np.nan
+    # Check if 'IT_valid' exists; if not, create it with np.nan
+    if 'IT_valid' not in df.columns:
+        IT_valid = pd.Series(np.nan, index=df.index, dtype='object')
+    else: IT_valid = df['IT_valid'].astype(str).copy()
+    IT_invalid_new = df['IT_invalid'].astype(str).copy()
+
+    # Assign valid and invalid entries
+    IT_valid[is_valid] = IT_invalid_str[is_valid]
+    IT_invalid_new[is_valid] = np.nan
+
+    # Get list of unique valid TACs
+    unique_valid_tacs = IT_invalid_str[is_valid].unique()
+    num_unique_valid_tacs = len(unique_valid_tacs)
+    valid_tacs = unique_valid_tacs.tolist()
+
+    # Number of filtered rows
+    filtered_rows = is_valid.sum()
+
+    # Capture unique counts before processing
+    if 'IT_valid' in df.columns:
+        before_unique_IT_valid = df['IT_valid'].nunique()
+    else:
+        before_unique_IT_valid = 0  # If 'IT_valid' doesn't exist, assume 0
+
+    before_unique_IT_invalid = df['IT_invalid'].nunique()
+
+    # Assign 'IT_valid' and 'IT_invalid' columns back to DataFrame and handle NaN
+    # Replace strings "nan" and "None" with pd.nan, then replace pd.NA and None with np.nan using fillna
+    df['IT_valid'] = df['IT_valid'].replace(['nan', 'None'], np.nan).fillna(np.nan)
+    df['IT_invalid'] = df['IT_invalid'].replace(['nan', 'None'], np.nan).fillna(np.nan)
+    df['IT_valid'] = IT_valid.astype('category')
+    df['IT_invalid'] = IT_invalid_new.astype('category')
+
+    # Capture unique counts after processing
+    after_unique_IT_valid = df['IT_valid'].nunique()
+    after_unique_IT_invalid = df['IT_invalid'].nunique()
+
+    # Calculate differences
+    diff_unique_IT_valid = after_unique_IT_valid - before_unique_IT_valid
+    diff_unique_IT_invalid = after_unique_IT_invalid - before_unique_IT_invalid
+
+    # Print summary statistics
+    print("=== Filter and Split Valid TACs ===")
+    print(f"Transferred {filtered_rows} rows containing valid TAC entries to 'IT_valid'.")
+    print(f"Number of unique TACs transferred to 'IT_valid': {num_unique_valid_tacs}")
+    print("List of unique valid TACs transferred to 'IT_valid':")
+    print(valid_tacs)
+    print("\n--- Unique Counts Statistics ---")
+    print(f"'IT_valid' unique count before processing: {before_unique_IT_valid}")
+    print(f"'IT_valid' unique count after processing: {after_unique_IT_valid}")
+    print(f"Difference in 'IT_valid' unique counts: {diff_unique_IT_valid}")
+    print(f"'IT_invalid' unique count before processing: {before_unique_IT_invalid}")
+    print(f"'IT_invalid' unique count after processing: {after_unique_IT_invalid}")
+    print(f"Difference in 'IT_invalid' unique counts: {diff_unique_IT_invalid}")
+    print("======================================\n")
+
+    # Optional: Verify mutual exclusivity (should be zero)
+    all_to_nan_and_cat(df, ['IT_valid', 'IT_invalid'])
+    overlapping = df[~df['IT_valid'].isna() & ~df['IT_invalid'].isna()]
+    print(f"Number of overlapping rows (should be 0): {overlapping.shape[0]}")
+
+    return df
+
+# Expand IT values (TACs) with Shared Country Codes
+def expand_shared_country_codes(df):
+    """
+    Expands entries in 'IT_invalid' with shared country codes from 'eX Y1 Y2 Y3'
+    to 'eX Y1 eX Y2 eX Y3'.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame containing 'IT_valid' and 'IT_invalid' columns.
+
+    Returns:
+    pd.DataFrame: The DataFrame with expanded 'IT_invalid' entries.
+    """
+    # Make a copy of the original 'IT_invalid' for verification
+    original_IT_invalid = df['IT_invalid'].copy()
+
+    # Define regex to identify shared country code patterns
+    # Pattern: eX Y1 Y2 Y3 ... (1 to 4 additional Y's)
+    shared_cc_pattern = (
+        r'^(e(?:[1-9]|[1-2][0-9]|3[0-5])\s(?:[1-9]|[1-3][0-9]|40))'
+        r'(?:\s(?:[1-9]|[1-3][0-9]|40)){1,4}$'
+    )
+
+    # Ensure 'IT_invalid' is string for processing
+    IT_invalid_str = df['IT_invalid'].astype(str)
+
+    # Identify entries that match the shared country code pattern
+    matches = IT_invalid_str.str.match(shared_cc_pattern).fillna(False)
+
+    # Extract the matching entries
+    matching_entries = df.loc[matches, 'IT_invalid']
+
+    # Function to expand shared country codes with error handling
+    def expand_entry(entry):
+        parts = entry.split()
+        if len(parts) < 2:
+            # Log the unexpected entry and skip expansion
+            print(f"Warning: Entry '{entry}' does not have enough parts to expand.")
+            return entry  # Return the original entry unmodified
+        country_code = parts[0]  # eX
+        type_codes = parts[1:]
+        # Expand to 'eX Y1 eX Y2 ...'
+        expanded = ' '.join([f"{country_code} {tc}" for tc in type_codes])
+        return expanded
+
+    # Apply expansion to matching entries
+    expanded_entries = matching_entries.apply(expand_entry)
+
+    # Assign expanded entries back to 'IT_invalid'
+    # To handle 'category' dtype, temporarily convert to 'object'
+    df['IT_invalid'] = df['IT_invalid'].astype('object')
+    df.loc[matches, 'IT_invalid'] = expanded_entries
+
+    # Convert back to 'category'
+    df['IT_invalid'] = df['IT_invalid'].astype('category')
+
+    # Calculate the number of modified rows
+    modified_rows = matches.sum()
+
+    # Calculate the change in number of unique values
+    before_unique = original_IT_invalid.nunique()
+    after_unique = df['IT_invalid'].nunique()
+    diff_nunique = after_unique - before_unique
+
+    # List of matched values (original state)
+    expanded_matches = matching_entries.unique().tolist()
+
+    # Output summary
+    print(f"\nModified {modified_rows} rows by expanding shared country codes.")
+    print(f"Change in number of unique values in IT_invalid after expansion: {diff_nunique}")
+    print("Values that matched the shared country code criteria (original state):")
+    print(expanded_matches[:10], "...")  # Displaying only first 10 for brevity
+
+    # Verification: Sample a few transformed entries
+    sample_size = 5
+    if modified_rows > 0:
+        # Select a random sample of transformed entries
+        sample_indices = df.loc[matches, 'IT_invalid'].sample(
+            n=min(sample_size, modified_rows), random_state=42).index
+        print("\nSample transformations:")
+        for idx in sample_indices:
+            before = original_IT_invalid.loc[idx]
+            after = df.loc[idx, 'IT_invalid']
+            print(f"Before: {before} --> After: {after}")
+    else:
+        print("\nNo entries were modified in Step 10.")
+
+    return df
 
 
+# Expand Multiple Country Codes in IT (Innovative Technologies) Entries
+def expand_multiple_country_codes(df):
+    """
+    Expands entries in 'IT_invalid' that contain multiple country codes.
+    For example, transforms 'eX1 Y1 eX2 Y2 Y3 Y4' into 'eX1 Y1 eX2 Y2 eX2 Y3 eX2 Y4'.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame containing 'IT_valid' and 'IT_invalid' columns.
+
+    Returns:
+    pd.DataFrame: The DataFrame with expanded 'IT_invalid' entries.
+    """
+    # Make a copy of the original 'IT_invalid' for verification
+    original_IT_invalid = df['IT_invalid'].copy()
+
+    # Define regex to identify country codes (eX)
+    country_code_pattern = r'e(?:[1-9]|[1-2][0-9]|3[0-5])'
+
+    # Preprocessing: Insert space before any 'eX' not preceded by space
+    df['IT_invalid'] = df['IT_invalid'].astype(str)
+    df['IT_invalid'] = df['IT_invalid'].str.replace(
+        rf'(?<!\s)({country_code_pattern})',
+        r' \1',
+        regex=True,
+        flags=re.IGNORECASE
+    ).str.strip()
+
+    # Define regex to identify entries with two or more country codes
+    multiple_cc_pattern = rf'(?:{country_code_pattern}).*(?:{country_code_pattern})'
+
+    # Create a mask for entries with two or more country codes
+    mask = df['IT_invalid'].str.contains(multiple_cc_pattern, flags=re.IGNORECASE, regex=True)
+
+    # Extract the matching entries
+    matching_entries = df.loc[mask, 'IT_invalid']
+
+    # Define the function to expand each matching entry
+    def expand_entry(entry):
+        tokens = entry.split()
+        expanded = []
+        current_ex = None  # To keep track of the current country code
+
+        for token in tokens:
+            # Check if the token is a country code
+            ex_match = re.fullmatch(r'e(?:[1-9]|[1-2][0-9]|3[0-5])', token, re.IGNORECASE)
+            if ex_match:
+                current_ex = ex_match.group(0).lower()  # Standardize to lowercase
+            else:
+                # Assume the token is a Y-code
+                y_match = re.fullmatch(r'[1-9]|[1-3][0-9]|40', token)
+                if y_match and current_ex:
+                    expanded.append(f"{current_ex} {y_match.group(0)}")
+                else:
+                    # Handle unexpected formats by keeping the token as is
+                    expanded.append(token)
+
+        return ' '.join(expanded)
+
+    # Apply the expansion function to the matching entries
+    expanded_entries = matching_entries.apply(expand_entry)
+
+    # Assign the expanded entries back to 'IT_invalid'
+    # To handle 'category' dtype, temporarily convert to 'object'
+    df['IT_invalid'] = df['IT_invalid'].astype('object')
+    df.loc[mask, 'IT_invalid'] = expanded_entries
+
+    # Convert 'IT_invalid' back to 'category'
+    df['IT_invalid'] = df['IT_invalid'].astype('category')
+
+    # Calculate the number of modified rows
+    modified_rows = mask.sum()
+
+    # Calculate the change in number of unique values
+    before_unique = original_IT_invalid.nunique()
+    after_unique = df['IT_invalid'].nunique()
+    diff_nunique = after_unique - before_unique
+
+    # List of matched values (original state)
+    expanded_matches = matching_entries.unique().tolist()
+
+    # Output summary
+    print(f"\n=== Step 11: Expand Multiple Country Codes ===")
+    print(f"Modified {modified_rows} rows by expanding multiple country codes.")
+    print(f"Change in number of unique values after expansion: {diff_nunique}")
+    print("Values that matched the multiple country code criteria (original state):")
+    print(expanded_matches[:10], "...")  # Displaying only first 10 for brevity
+
+    # Verification: Sample a few transformed entries
+    sample_size = 20
+    if modified_rows > 0:
+        # Select a random sample of transformed entries
+        sample_indices = df.loc[mask, 'IT_invalid'].sample(
+            n=min(sample_size, modified_rows), random_state=42).index
+        print("\nSample transformations:")
+        for idx in sample_indices:
+            before = original_IT_invalid.loc[idx]
+            after = df.loc[idx, 'IT_invalid']
+            print(f"Before: {before} --> After: {after}")
+    else:
+        print("\nNo entries were modified in Step 11.")
+
+    print("============================================\n")
+
+    return df
+
+
+# Split IT_valid column into 5 sepearte columns for each Innovative Technology (TAC, Type Approval Code)
+def split_valid_tacs(series):
+    """
+    Splits the 'IT_valid' column into 5 separate columns for each TAC (up to 5 TACs).
+    Handles missing values properly and ensures categorical dtype is preserved.
+
+    Parameters:
+    series (pd.Series): The Series containing the combined TAC codes (categorical).
+
+    Returns:
+    pd.DataFrame: A DataFrame with individual TAC columns.
+    """
+
+    # Step 0: Define regular expression to match valid 'eXX XX', 'eX XX', 'eX X', 'eXX X' patterns
+    valid_pattern = re.compile(r'e\d{1,2} \d{1,2}')
+
+    # Step 1: Convert series from categorical to string for manipulation
+    series_str = series.astype(str)
+
+    # Step 2: Define a function to extract valid TAC codes
+    def extract_codes(value):
+        if pd.isna(value) or value in ['nan', 'None']:
+            return [np.nan] * 5  # Return a list of NaNs
+        # Find all valid matches for the pattern
+        matches = valid_pattern.findall(value)
+        # Pad the list to have exactly 5 elements
+        matches += [np.nan] * (5 - len(matches))
+        return matches[:5]  # Ensure the list is exactly length 5
+
+    # Step 3: Apply the extraction function to split the strings into valid components
+    split_series = series_str.apply(extract_codes)
+
+    # Step 4: Convert the list of codes into a DataFrame with 5 columns
+    tac_df = pd.DataFrame(split_series.tolist(), columns=[f'IT_{i+1}' for i in range(5)], index=series.index)
+
+    # Step 5: Convert columns to 'category' dtype
+    for col in tac_df.columns:
+        tac_df[col] = tac_df[col].astype('category')
+
+    return tac_df
     
+    
+# Count unique IT codes/Type Approval Codes (TACs) accross IT columns   
+def count_unique_tacs(df):
+    """
+    Counts the unique IT codes/TACs across the 'IT_1' to 'IT_5' columns.
+    Returns a pandas Series with TACs as index and their counts as values.
+    """
+    print("Counting unique TACs across all IT columns...")
 
-# restore NaNs and turn to "category" specified columns    
+    # Specify the TAC columns
+    tac_columns = ['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5']
+
+    # Concatenate the TAC columns into a single Series
+    combined_tacs = pd.concat([df[col] for col in tac_columns], axis=0, ignore_index=True)
+
+    # Drop NaN values
+    combined_tacs = combined_tacs.dropna()
+
+    # Count the unique TACs
+    tac_counts = combined_tacs.value_counts()
+
+    print(f"Total unique TACs found: {tac_counts.shape[0]}")
+    print(f"Top 10 most common TACs:\n{tac_counts.head(10)}\n")
+
+    return tac_counts
+
+
+
+# restore NaNs and turn to "category" specified columns
+# makes sure that all NaNs in the specified columns are encoded as np.nan and the columns itself as type category     
 def all_to_nan_and_cat(df, cols):
     for col in cols:
         df[col] = df[col].replace(['nan', 'None'], np.nan).fillna(np.nan)
         df[col] = df[col].astype('category')
-        
+
+
+
+##################################################################################################
+##### Functions for DataPipeline Part2 (choosing columns, categories, NaNs, Outliers .. ##########
+##################################################################################################        
         
         
 def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=None, other_label='Other', min_cat_percent=10):
