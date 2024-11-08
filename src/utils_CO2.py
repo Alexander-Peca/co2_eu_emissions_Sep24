@@ -15,6 +15,196 @@ import os
 data_path = os.path.abspath(os.path.join(os.getcwd(), '..', 'data'))
 
 
+##################################################################################################
+########################## Functions for Loading and Saving#######################################
+################################################################################################## 
+   
+
+# Define Loading data function for the local drive
+def load_data_local(file_name, file_path = data_path):
+    """
+    Loads a parquet or csv file from the local directory.
+
+    Parameters:
+    file_name (str): The name of the file to load.
+    file_path (str): The path to the directory where the file is located.
+
+    Returns:
+    pd.DataFrame: The loaded data as a pandas DataFrame.
+    """
+    # Full file path
+    full_file_path = os.path.join(file_path, file_name)
+
+    # Check file extension and load accordingly
+    if file_name.endswith('.parquet'):
+        print(f"Loaded parquet file from local path.")
+        table = pq.read_table(full_file_path)
+        df = table.to_pandas()  # Convert to pandas DataFrame
+    elif file_name.endswith('.csv'):
+        print(f"Loaded csv file from local path.")
+        df = pd.read_csv(full_file_path)  # Read CSV into pandas DataFrame
+    else:
+        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
+
+    return df
+
+
+# dataset to be loaded must be in google-drive (shared: Project_CO2_DS/Data/EU Data)
+# Add a shortcut by clicking to the 3 dots (file_name) to the left, click "Organise"
+# click "Add shortcut", choose "My Drive" or another folder of your preferrence but
+# also in "My Drive", click ADD...
+
+def load_data_gdrive(file_name):
+    """
+    Ensures Google Drive is mounted, searches for a file by name across the
+    entire Google Drive, and loads a parquet or csv file if found.
+
+    Parameters:
+    file_name (str): The name of the file to load.
+
+    Returns:
+    pd.DataFrame: The loaded data as a pandas DataFrame, or None if the file
+    is not found.
+    """
+    # Function to check and mount Google Drive if not already mounted
+    def check_and_mount_drive():
+        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
+        drive_mount_path = '/content/drive'
+        if not os.path.ismount(drive_mount_path):
+            print("Mounting Google Drive...")
+            # Import inside the condition when it's determined that mounting is needed
+            from google.colab import drive
+            drive.mount(drive_mount_path)
+        else:
+            print("Google Drive is already mounted.")
+
+    # Function to search for the file in Google Drive
+    def find_file_in_drive(file_name, start_path='/content/drive/My Drive'):
+        """Search for a file by name in Google Drive starting from a specified path."""
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            if file_name in filenames:
+                return os.path.join(dirpath, file_name)
+        return None
+
+    # Check and mount Google Drive if not already mounted
+    check_and_mount_drive()
+
+    # Find the file in Google Drive
+    file_path = find_file_in_drive(file_name)
+    if not file_path:
+        print("File not found.")
+        return None
+
+    # Check file extension and load accordingly
+    if file_name.endswith('.parquet'):
+        print(f"Loading parquet file: {file_path}")
+        table = pq.read_table(file_path)
+        df = table.to_pandas()  # Convert to pandas DataFrame
+    elif file_name.endswith('.csv'):
+        print(f"Loading CSV file: {file_path}")
+        df = pd.read_csv(file_path)  # Read CSV into pandas DataFrame
+    else:
+        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
+
+    return df
+
+# Define saving data function
+# Example usage:
+# save_data(df, 'my_data.csv', '/path/to/save')
+
+def save_data(df, file_name, file_path = data_path):
+    """
+    Saves a pandas DataFrame as a CSV file to the specified path.
+
+    Parameters:
+    df (pd.DataFrame): The pandas DataFrame to save.
+    file_name (str): The name of the CSV file to save (should end with .csv).
+    file_path (str): The path to the directory where the file should be saved.
+
+    Returns:
+    None
+    """
+    # Full file path
+    full_file_path = os.path.join(file_path, file_name)
+
+    # Check if the file name ends with .csv
+    if not file_name.endswith('.csv'):
+        raise ValueError("File name should end with '.csv' extension.")
+
+    # Save the DataFrame as CSV
+    print(f"Saving DataFrame as a CSV file at: {full_file_path}")
+    df.to_csv(full_file_path, index=False)
+
+    print(f"CSV file saved successfully at: {full_file_path}")
+
+    return full_file_path 
+
+
+# Function to save file in google drive folder when working with colab 
+def save_data_gdrive(df, file_name):
+    """
+    Ensures Google Drive is mounted and saves a DataFrame to Google Drive as a
+    parquet or csv file, based on the file extension provided in file_name.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to save.
+    file_name (str): The name of the file to save (with the .csv or .parquet extension).
+
+    Returns:
+    str: The path where the file was saved.
+    """
+
+    # Function to check and mount Google Drive if not already mounted
+    def check_and_mount_drive():
+        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
+        drive_mount_path = '/content/drive'
+        if not os.path.ismount(drive_mount_path):
+            print("Mounting Google Drive...")
+            # Import inside the condition when it's determined that mounting is needed
+            from google.colab import drive
+            drive.mount(drive_mount_path)
+        else:
+            print("Google Drive is already mounted.")
+
+    # Check and mount Google Drive if not already mounted
+    check_and_mount_drive()
+
+    # Define the saving directory in Google Drive (modify as needed)
+    save_dir = '/content/drive/My Drive/Project_CO2_DS/Data/EU Data'
+
+    # Create directory if it doesn't exist
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Automatically detect the file format from the file_name extension
+    if file_name.endswith('.parquet'):
+        file_format = 'parquet'
+    elif file_name.endswith('.csv'):
+        file_format = 'csv'
+    else:
+        raise ValueError("Unsupported file format. Please provide a file name with '.parquet' or '.csv' extension.")
+
+    # Full path to save the file
+    file_path = os.path.join(save_dir, file_name)
+
+    # Save the DataFrame based on the detected format
+    if file_format == 'parquet':
+        print(f"Saving DataFrame as a parquet file: {file_path}")
+        df.to_parquet(file_path, index=False)
+    elif file_format == 'csv':
+        print(f"Saving DataFrame as a CSV file: {file_path}")
+        df.to_csv(file_path, index=False)
+
+    print(f"File saved at: {file_path}")
+    return file_path
+
+
+
+##################################################################################################
+########################## Functions for Data Inspection #########################################
+################################################################################################## 
+
+
 def inspect_data(df):
     """
     Function to perform an initial data inspection on a given DataFrame.
@@ -155,7 +345,11 @@ def count_missing_values2(df, columns):
     return pd.DataFrame(results)
 
 
-################### Function(s) for Initial Processing of Raw Data #########################
+
+##################################################################################################
+######################## Function(s) for Initial Processing of Raw Data ##########################
+##################################################################################################
+
 
 def optimize_dtypes(df):
     """
@@ -400,7 +594,7 @@ def optimize_nan_handling(df: pd.DataFrame) -> pd.DataFrame:
 
 
 ##################################################################################################
-################### Functions for Cleanup of Categorical valuse ##################################
+################### Functions for Cleanup of Categorical values ##################################
 ##################################################################################################
         
 # Function to rename categorical values using mappings
@@ -1017,9 +1211,6 @@ def filter_categories(df, column, drop=False, top_n=None, categories_to_keep=Non
     return df
 
 
-
-
-
 # Retain top_n ITs 
 def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_5'], other_label='Other', min_cat_percent=10):
     """
@@ -1091,9 +1282,6 @@ def retain_top_n_ITs(df, top_n, IT_columns=['IT_1', 'IT_2', 'IT_3', 'IT_4', 'IT_
     print("Replacement complete.\n")
     print("=======================\n")
     return df.copy()
-
-
-
 
 
 
@@ -1196,186 +1384,6 @@ def generate_category_lists(df, max_categories=20, min_cat_percent=10, top_n=10)
         print("# No IT columns found in the DataFrame.")
 
 
-        
-
-# Define Loading data function for the local drive
-def load_data_local(file_name, file_path = data_path):
-    """
-    Loads a parquet or csv file from the local directory.
-
-    Parameters:
-    file_name (str): The name of the file to load.
-    file_path (str): The path to the directory where the file is located.
-
-    Returns:
-    pd.DataFrame: The loaded data as a pandas DataFrame.
-    """
-    # Full file path
-    full_file_path = os.path.join(file_path, file_name)
-
-    # Check file extension and load accordingly
-    if file_name.endswith('.parquet'):
-        print(f"Loaded parquet file from local path.")
-        table = pq.read_table(full_file_path)
-        df = table.to_pandas()  # Convert to pandas DataFrame
-    elif file_name.endswith('.csv'):
-        print(f"Loaded csv file from local path.")
-        df = pd.read_csv(full_file_path)  # Read CSV into pandas DataFrame
-    else:
-        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
-
-    return df
-
-
-# dataset to be loaded must be in google-drive (shared: Project_CO2_DS/Data/EU Data)
-# Add a shortcut by clicking to the 3 dots (file_name) to the left, click "Organise"
-# click "Add shortcut", choose "My Drive" or another folder of your preferrence but
-# also in "My Drive", click ADD...
-
-def load_data_gdrive(file_name):
-    """
-    Ensures Google Drive is mounted, searches for a file by name across the
-    entire Google Drive, and loads a parquet or csv file if found.
-
-    Parameters:
-    file_name (str): The name of the file to load.
-
-    Returns:
-    pd.DataFrame: The loaded data as a pandas DataFrame, or None if the file
-    is not found.
-    """
-    # Function to check and mount Google Drive if not already mounted
-    def check_and_mount_drive():
-        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
-        drive_mount_path = '/content/drive'
-        if not os.path.ismount(drive_mount_path):
-            print("Mounting Google Drive...")
-            # Import inside the condition when it's determined that mounting is needed
-            from google.colab import drive
-            drive.mount(drive_mount_path)
-        else:
-            print("Google Drive is already mounted.")
-
-    # Function to search for the file in Google Drive
-    def find_file_in_drive(file_name, start_path='/content/drive/My Drive'):
-        """Search for a file by name in Google Drive starting from a specified path."""
-        for dirpath, dirnames, filenames in os.walk(start_path):
-            if file_name in filenames:
-                return os.path.join(dirpath, file_name)
-        return None
-
-    # Check and mount Google Drive if not already mounted
-    check_and_mount_drive()
-
-    # Find the file in Google Drive
-    file_path = find_file_in_drive(file_name)
-    if not file_path:
-        print("File not found.")
-        return None
-
-    # Check file extension and load accordingly
-    if file_name.endswith('.parquet'):
-        print(f"Loading parquet file: {file_path}")
-        table = pq.read_table(file_path)
-        df = table.to_pandas()  # Convert to pandas DataFrame
-    elif file_name.endswith('.csv'):
-        print(f"Loading CSV file: {file_path}")
-        df = pd.read_csv(file_path)  # Read CSV into pandas DataFrame
-    else:
-        raise ValueError("Unsupported file format. Please provide a parquet or csv file.")
-
-    return df
-
-# Define saving data function
-# Example usage:
-# save_data(df, 'my_data.csv', '/path/to/save')
-
-def save_data(df, file_name, file_path = data_path):
-    """
-    Saves a pandas DataFrame as a CSV file to the specified path.
-
-    Parameters:
-    df (pd.DataFrame): The pandas DataFrame to save.
-    file_name (str): The name of the CSV file to save (should end with .csv).
-    file_path (str): The path to the directory where the file should be saved.
-
-    Returns:
-    None
-    """
-    # Full file path
-    full_file_path = os.path.join(file_path, file_name)
-
-    # Check if the file name ends with .csv
-    if not file_name.endswith('.csv'):
-        raise ValueError("File name should end with '.csv' extension.")
-
-    # Save the DataFrame as CSV
-    print(f"Saving DataFrame as a CSV file at: {full_file_path}")
-    df.to_csv(full_file_path, index=False)
-
-    print(f"CSV file saved successfully at: {full_file_path}")
-
-    return full_file_path 
-
-
-# Function to save file in google drive folder when working with colab 
-def save_data_gdrive(df, file_name):
-    """
-    Ensures Google Drive is mounted and saves a DataFrame to Google Drive as a
-    parquet or csv file, based on the file extension provided in file_name.
-
-    Parameters:
-    df (pd.DataFrame): The DataFrame to save.
-    file_name (str): The name of the file to save (with the .csv or .parquet extension).
-
-    Returns:
-    str: The path where the file was saved.
-    """
-
-    # Function to check and mount Google Drive if not already mounted
-    def check_and_mount_drive():
-        """Checks if Google Drive is mounted in Colab, and mounts it if not."""
-        drive_mount_path = '/content/drive'
-        if not os.path.ismount(drive_mount_path):
-            print("Mounting Google Drive...")
-            # Import inside the condition when it's determined that mounting is needed
-            from google.colab import drive
-            drive.mount(drive_mount_path)
-        else:
-            print("Google Drive is already mounted.")
-
-    # Check and mount Google Drive if not already mounted
-    check_and_mount_drive()
-
-    # Define the saving directory in Google Drive (modify as needed)
-    save_dir = '/content/drive/My Drive/Project_CO2_DS/Data/EU Data'
-
-    # Create directory if it doesn't exist
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    # Automatically detect the file format from the file_name extension
-    if file_name.endswith('.parquet'):
-        file_format = 'parquet'
-    elif file_name.endswith('.csv'):
-        file_format = 'csv'
-    else:
-        raise ValueError("Unsupported file format. Please provide a file name with '.parquet' or '.csv' extension.")
-
-    # Full path to save the file
-    file_path = os.path.join(save_dir, file_name)
-
-    # Save the DataFrame based on the detected format
-    if file_format == 'parquet':
-        print(f"Saving DataFrame as a parquet file: {file_path}")
-        df.to_parquet(file_path, index=False)
-    elif file_format == 'csv':
-        print(f"Saving DataFrame as a CSV file: {file_path}")
-        df.to_csv(file_path, index=False)
-
-    print(f"File saved at: {file_path}")
-    return file_path
-
 
 # Function to drop rows where all values in 'Ewltp (g/km)' are NaN
 def drop_rows_without_target(df, target='Ewltp (g/km)'):
@@ -1391,6 +1399,7 @@ def drop_rows_without_target(df, target='Ewltp (g/km)'):
     """
     df.dropna(subset=[target], inplace=True)
     return df
+
 
 # Define function for dropping columns
 def drop_irrelevant_columns(df, columns_dict):
@@ -1547,7 +1556,7 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
 
 
 
-
+# iterative version for repeated removal of outliers
 def replace_outliers_with_median_iterative(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True, max_iterations=10):
     """
     Iteratively replaces outliers in the specified Gaussian-distributed columns with the median value of those columns.
@@ -1870,7 +1879,7 @@ def handle_nans(df, strategy_dict):
 
 
 
-# Handle NaNs in Erwltp and Ernedc
+# Handle NaNs in Erwltp and Ernedc (not used)
 import pandas as pd
 
 def handle_nans_IT_related_columns(df, it_columns, target_columns, strategy='mean'):
@@ -2100,17 +2109,17 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     return df_encoded
 
 
+############################################################################################
+################### Function(s) for managing filenames/datasets ############################
+############################################################################################
 
-# ================================================================
-# ========== manage filenames ====================================
-import os
-import pandas as pd
 
 # Define the base directories
 BASE_PATH = os.path.abspath(os.path.join('..', 'data', 'Preprocessed'))
 SRC_PATH = os.path.abspath(os.path.join('..', 'src'))
 MAPPING_CSV = os.path.join(SRC_PATH, 'file_mapping.csv')
 
+# create or append file_mapping for choosing dataset by number
 def create_or_append_file_mapping(filename_list, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
     """
     Creates a new file mapping DataFrame or appends new filenames to an existing mapping.
@@ -2203,8 +2212,12 @@ def load_data_by_number(number, mapping_csv=MAPPING_CSV, base_path=BASE_PATH):
     print(f"Loaded file: '{filename}'")
     return data
 
-# ================ end of manage filenames ===========================
 
+
+
+############################################################################################
+################### #########################
+############################################################################################
 
 # drop duplicates and calculate frequencies from #identical occurences
 
@@ -2307,9 +2320,9 @@ def drop_duplicates(df, subset=None, drop=True, preserve_weights=False):
     return df
 
 
-
-
-
+############################################################################################
+###################  #########################
+############################################################################################
 
 # plot histograms per year even more sophisticated version (with lineplot)
 
