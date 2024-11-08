@@ -429,6 +429,124 @@ def rename_catval(df, attribute, mappings):
     # Convert the column back to categorical
     df[attribute] = df[attribute].astype('category')
     
+
+
+def rename_catval_mp(df: pd.DataFrame, mapping_list: list) -> pd.DataFrame:
+    """
+    Rename the categories of the 'Mp' column in the provided DataFrame based on a given mapping list.
+    
+    This function ensures that the 'year' column is of integer type and the 'Mp' column is of object type.
+    It then applies a mapping to standardize the 'Mp' values according to the specified name mappings and
+    year ranges. The function prioritizes more specific mappings by shorter period lengths and handles
+    overlapping mappings appropriately.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame containing at least the 'year' and 'Mp' columns.
+    mapping_list : list of dict
+        A list of mapping dictionaries. Each dictionary should have the following keys:
+            - 'old_names': list of str
+                The list of original names to be mapped.
+            - 'new_name': str
+                The standardized name to replace the old names.
+            - 'start_year': int or None
+                The starting year for which the mapping is applicable. If None, no lower bound is applied.
+            - 'end_year': int or None
+                The ending year for which the mapping is applicable. If None, no upper bound is applied.
+    
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with the 'Mp' column standardized according to the provided mapping list.
+    
+    Raises
+    ------
+    KeyError
+        If the input DataFrame does not contain the required 'year' or 'Mp' columns.
+    ValueError
+        If the mapping_list is not properly formatted.
+    
+    Notes
+    -----
+    - The function preserves the original row order of the input DataFrame.
+    - The 'Mp' column in the returned DataFrame is converted to a categorical type.
+    """
+    # Check for required columns in the DataFrame
+    if 'year' not in df.columns or 'Mp' not in df.columns:
+        raise KeyError("Input DataFrame must contain 'year' and 'Mp' columns.")
+    
+    # Ensure 'year' is integer and 'Mp' is object type to handle pd.NA correctly
+    df = df.copy()  # To avoid modifying the original DataFrame
+    df['year'] = df['year'].astype(int)
+    df['Mp'] = df['Mp'].astype(object)
+    
+    # Reset index to keep track of original row order
+    df.reset_index(inplace=True)
+    
+    # Create mapping DataFrame from mapping_list
+    mapping_entries = []
+    for mapping in mapping_list:
+        if not all(key in mapping for key in ['old_names', 'new_name', 'start_year', 'end_year']):
+            raise ValueError("Each mapping must contain 'old_names', 'new_name', 'start_year', and 'end_year' keys.")
+        for old_name in mapping['old_names']:
+            mapping_entries.append({
+                'old_name': old_name,
+                'new_name': mapping['new_name'],
+                'start_year': mapping['start_year'],
+                'end_year': mapping['end_year']
+            })
+    mapping_df = pd.DataFrame(mapping_entries)
+    
+    # Merge df with mapping_df on 'Mp' and 'old_name' to associate possible mappings
+    df_merged = df.merge(
+        mapping_df,
+        left_on='Mp',
+        right_on='old_name',
+        how='left',
+        suffixes=('', '_mapped')
+    )
+    
+    # Replace NaN in 'start_year' and 'end_year' with -infinity and infinity for comparison
+    df_merged['start_year'] = df_merged['start_year'].fillna(-np.inf)
+    df_merged['end_year'] = df_merged['end_year'].fillna(np.inf)
+    
+    # Create mask for rows where 'year' falls within 'start_year' and 'end_year'
+    year_mask = (df_merged['year'] >= df_merged['start_year']) & (df_merged['year'] <= df_merged['end_year'])
+    
+    # Assign 'Mp_standardized' where conditions are met, else NaN
+    df_merged['Mp_standardized'] = np.where(year_mask, df_merged['new_name'], pd.NA)
+    
+    # Calculate period length for prioritization (shorter periods first)
+    df_merged['period_length'] = df_merged['end_year'] - df_merged['start_year']
+    df_merged['period_length'].replace(np.inf, 9999, inplace=True)
+    df_merged['period_length'].replace(-np.inf, -9999, inplace=True)
+    
+    # Sort by original index and period_length to prioritize more specific mappings
+    df_merged.sort_values(by=['index', 'period_length'], ascending=[True, True], inplace=True)
+    
+    # Drop duplicates to keep the first (most specific) mapping per row
+    df_merged = df_merged.drop_duplicates(subset='index', keep='first')
+    
+    # Set index to 'index' for merging back to the original DataFrame
+    df.set_index('index', inplace=True)
+    df_merged.set_index('index', inplace=True)
+    
+    # Assign standardized names to the 'Mp' column
+    df['Mp'] = df_merged['Mp_standardized']
+    
+    # Convert 'Mp' to categorical type
+    df['Mp'] = df['Mp'].astype('category')
+    
+    # Reset index to restore original DataFrame structure
+    df.reset_index(drop=True, inplace=True)
+    
+    return df
+
+
+
+
+
     
 
 # restore NaNs and turn to "category" specified columns    
@@ -1064,7 +1182,7 @@ def replace_outliers_with_median(df, columns=None, IQR_distance_multiplier=1.5, 
     return df
 
 
-import pandas as pd
+
 
 def replace_outliers_with_median_iterative(df, columns=None, IQR_distance_multiplier=1.5, apply_outlier_removal=True, max_iterations=10):
     """
