@@ -99,7 +99,6 @@ if page == pages[2]:
     st.write("Our primary approach was to establish a robust baseline using multilinear regression, a widely accepted model for regression tasks.") 
     st.write("This choice allowed us to evaluate the model's performance under straightforward, interpretable assumptions about linear relationships between features and the target variable.") 
 
-
     st.write('**First models**')
     st.write("1- Linear Regression with Elastic Net")
     st.write("2- Decision Trees: chosen for their interpretability and ease of handling non-linear relationships. However, prone to overfitting.")
@@ -238,6 +237,7 @@ if page == pages[3]:
             else:
                 comparison_df = pd.DataFrame(results).T
                 st.write(comparison_df)
+
 
 
 # =====================================================================================
