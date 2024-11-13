@@ -178,6 +178,8 @@ if page == pages[2]:
 
     
 
+
+
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION - ONLY THIS PAGE SHOWS THE MODELS AND RESULTS
 # =====================================================================================
@@ -186,10 +188,56 @@ if page == pages[3]:
     st.write("Modelisation")
 
     # Define file paths where the models are stored
-    save_dir = r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Presentation streamlit'
-    xgboost_model_path = os.path.join(save_dir, 'xgb_model.joblib')
-    dnn_model_path = os.path.join(save_dir, 'dnn_model.keras')
-    lr_model_path = os.path.join(save_dir, 'regression_model.joblib')
+    # load_dir = r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Presentation streamlit'
+    # load_dir = r"C:\Users\nx10\DS-Project\trained_Models"
+
+    # Build a path relative to this script's directory
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # load_dir = os.path.normpath(os.path.join(current_dir, "../models"))
+    # xgboost_model_path = os.path.join(load_dir, 'xgb_model.joblib')
+    # xgboost_model_path = "C:\\Users\\nx10\\DS-Project\\trained_Models\\xgboost_model.joblib"
+    # st.write(xgboost_model_path)
+
+    
+    # URL for the model file on GitHub (using raw link)
+    model_url = "https://raw.githubusercontent.com/DataScientest-Studio/aug24_bds_int---co2/main/src/models/xgb_model.joblib"
+
+    # Your GitHub personal access token
+    access_token = "your_tokem"
+
+    # Set up headers for authentication
+    headers = {"Authorization": f"token {access_token}"}
+
+    try:
+        st.write("Downloading and loading the XGBoost model from GitHub...")
+
+        # Download the model content with authentication
+        response = requests.get(model_url, headers=headers)
+        response.raise_for_status()  # Check if the request was successful
+
+        # Load the model from the downloaded content
+        XG_model = joblib.load(BytesIO(response.content))
+        st.write("Model loaded successfully from GitHub.")
+
+    except requests.exceptions.HTTPError as e:
+        st.write("Failed to load the model from GitHub.")
+        st.write(f"HTTP Error: {e}")
+    except Exception as e:
+        st.write("An error occurred while loading the model.")
+        st.write(e)
+
+
+
+
+    # dnn_model_path = os.path.join(load_dir, 'dnn_model.keras')
+    # lr_model_path = os.path.join(load_dir, 'regression_model.joblib')
+
+    # debug info: shows correct path BUT not able to load models...
+    # st.write("Current directory:", current_dir)
+    # st.write("Models directory:", load_dir)
+    # st.write("XGBoost model path:", xgboost_model_path)
+    # st.write("DNN model path:", dnn_model_path)
+    # st.write("LR model path:", lr_model_path)
 
     # Function to load models using caching
     @st.cache_data
@@ -197,8 +245,8 @@ if page == pages[3]:
         try:
             # Check if models are loaded from cache
             XG_model = joblib.load(xgboost_model_path)
-            DNN_model = tf.keras.models.load_model(dnn_model_path)
-            LR_model = joblib.load(lr_model_path)
+            #DNN_model = tf.keras.models.load_model(dnn_model_path)
+            #LR_model = joblib.load(lr_model_path)
             st.write("Models loaded successfully!")
         except:
             st.write("Models not found. Please ensure they are saved and available in the given directory.")
@@ -210,7 +258,9 @@ if page == pages[3]:
 
     # If models are not loaded, show message
     if XG_model is None or DNN_model is None or LR_model is None:
-        st.write("Models not loaded. Please ensure they are saved and available in the given directory.")
+            st.write("Models not loaded. Please ensure they are saved and available in the given directory.")
+            if XG_model is not None:
+                st.write("XG_model loaded")
 
     # Prepare the data
     target_column = 'Ewltp (g/km)'  # Target column
