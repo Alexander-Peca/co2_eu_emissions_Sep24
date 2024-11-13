@@ -35,7 +35,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 # =====================================================================================
 
 st.title("CO2 emissions by vehicles")
-pages = ["Home", "Data and Preprocessing", "Choice of Models", "Evaluating Model Performance", "Conclusion"]
+pages = ["Home", "Data and Preprocessing", "Choice of Models", "Evaluating Model Performance", "Conclusions"]
 page = st.sidebar.radio("Go to", pages)
 
 # =====================================================================================
@@ -271,7 +271,7 @@ if page == pages[3]:
 
 
 if page == pages[4]:
-    st.write("## Conclusion")
+    st.write("## Conclusion about the models")
 
     st.write("""
     **XGBoost** emerges as the strongest model in terms of predictive accuracy and robustness, with the lowest Mean Squared Error (MSE), highest R-squared, and a reasonable training time. Its decision tree-based structure allows it to effectively capture non-linear relationships, which linear regression cannot. XGBoost’s balance between performance and efficiency makes it a highly suitable choice for this task.
@@ -284,8 +284,21 @@ if page == pages[4]:
     """)
 
 
+    st.write("## Conclusion about subject matter")
+    st.write("""Unsurprisingly, reducing autofeatures such as Weight, size, engine capacity (ccm), engine power, as well as, adopting single or better combined innovative technologies like exterior LED lights and/or 12 volt efficient alternators will reduce the CO2 emissions.
+                In general terms, shifting to electric powered vehicles emitting by definition 0 gr/km CO2 is the way to go and which has been adopted by almost all car manufacturers.""")
 
 
+    st.write("## Prospects for improvement") 
+    st.write("""
+    **Ensemble Methods**: Combining predictions from models like Linear Regression, XGBoost, and Dense Neural Networks (DNN) in a stacked ensemble could leverage their strengths and enhance overall accuracy.
 
+    **Hyperparameter Tuning**: While grid search optimized some models, more exhaustive tuning or Bayesian Optimization could improve performance, particularly for complex models like XGBoost and DNN.
 
+    **Deep Learning Architectures**: Exploring architectures like Convolutional Neural Networks (CNNs) for structured data or Residual Connections/Layer Normalization could reduce overfitting and capture more nuanced relationships.
+
+    **Cross-validation with Time Series Splits**: Time-based cross-validation could improve generalization across different time periods, ensuring better model performance on future data.
+
+    **Data Augmentation**: If certain categories are underrepresented, techniques like SMOTE could balance the dataset by creating synthetic data, improving model robustness.
+    """)
 
