@@ -35,7 +35,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 # =====================================================================================
 
 st.title("CO2 emissions by vehicles")
-pages = ["Home", "Data and Preprocessing", "Choice of Models", "Modelisation and Analysis", "Conclusion"]
+pages = ["Home", "Data and Preprocessing", "Choice of Models", "Evaluating Model Performance", "Conclusion"]
 page = st.sidebar.radio("Go to", pages)
 
 # =====================================================================================
@@ -43,7 +43,7 @@ page = st.sidebar.radio("Go to", pages)
 # =====================================================================================
 
 if page == pages[0]:
-    st.write('Context')
+    st.write('## Context')
 
     image_url = "https://www.mcilvainmotors.com/wp-content/uploads/2024/02/Luxury-Car-Increased-Emission.jpg"
     st.image(image_url, caption="Luxury Car Emissions", use_container_width=True)
@@ -90,7 +90,7 @@ if page == pages[1]:  # Only load data when on the "Data and Preprocessing" page
 # =====================================================================================
 
 if page == pages[2]:
-    st.write("Selecting the appropriate algorithm")
+    st.write("## Selecting the appropriate algorithm")
     image_url = "https://blog.medicalalgorithms.com/wp-content/uploads/2015/03/medical-algorithm-definition.jpg"
     st.image(image_url, caption="Machine learning, deep learning?", use_container_width=True)
 
@@ -99,11 +99,11 @@ if page == pages[2]:
     st.write("This choice allowed us to evaluate the model's performance under straightforward, interpretable assumptions about linear relationships between features and the target variable.") 
 
     st.write('**First models**')
-    st.write("1- Linear Regression with Elastic Net")
-    st.write("2- Decision Trees: chosen for their interpretability and ease of handling non-linear relationships. However, prone to overfitting.")
-    st.write("3- Random Forests: as an ensemble method that aggregates multiple Decision Trees. They are more robust and show reduced tendency to overfit compared to a single Decision Tree.")
-    st.write("4- XGBoost: also a tree-based ensemble method, which improves performance by sequentially building trees and learning from residual errors")
-    st.write("5- Dense Neural Networks: lastly introduced as a deep learning approach to explore the possibility of capturing highly complex interactions among features that may not be adequately handled by tree-based algorithms")
+    st.write("1- **Linear Regression with Elastic Net**")
+    st.write("2- **Decision Trees**: chosen for their interpretability and ease of handling non-linear relationships. However, prone to overfitting.")
+    st.write("3- **Random Forests**: as an ensemble method that aggregates multiple Decision Trees. They are more robust and show reduced tendency to overfit compared to a single Decision Tree.")
+    st.write("4- **XGBoost**: also a tree-based ensemble method, which improves performance by sequentially building trees and learning from residual errors")
+    st.write("5- **Dense Neural Networks**: lastly introduced as a deep learning approach to explore the possibility of capturing highly complex interactions among features that may not be adequately handled by tree-based algorithms")
 
     st.write('**Final models: Exclusion of Decision Trees and Random Forests**')
     st.markdown("""- Redundancy with XGBoost: it's advanced algorithm that surpasses the performance of Decision Trees and Random Forests.
@@ -125,6 +125,34 @@ if page == pages[2]:
 
     # Display the table in Streamlit
     st.markdown(markdown_table)
+
+
+
+    st.write('**Interpretability**')
+
+    # Display images showcasing feature importance for Linear Regression and XGBoost
+    #linear_regression_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance Linear Regression.png'
+    #xgboost_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance XG Boost.png'
+
+    # Show images in Streamlit
+    #st.image(linear_regression_image_path, caption="Feature Importance - Linear Regression", use_column_width=True)
+    #st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_column_width=True)
+
+    # Google Drive URLs for the images
+    linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
+    xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
+
+    # Download the images
+    linear_regression_image_path = "linear_regression_feature_importance.png"
+    xgboost_image_path = "xgboost_feature_importance.png"
+
+    gdown.download(linear_regression_image_url, linear_regression_image_path, quiet=False)
+    gdown.download(xgboost_image_url, xgboost_image_path, quiet=False)
+
+    # Show images in Streamlit
+    st.image(linear_regression_image_path, caption="Feature Importance - Linear Regression", use_container_width=True)
+    st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_container_width=True)
+
 
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION
@@ -243,7 +271,18 @@ if page == pages[3]:
 
 
 if page == pages[4]:
-    st.write("Modelisation")
+    st.write("## Conclusion")
+
+    st.write("""
+    **XGBoost** emerges as the strongest model in terms of predictive accuracy and robustness, with the lowest Mean Squared Error (MSE), highest R-squared, and a reasonable training time. Its decision tree-based structure allows it to effectively capture non-linear relationships, which linear regression cannot. XGBoost’s balance between performance and efficiency makes it a highly suitable choice for this task.
+
+    **Dense Neural Network (DNN)** is a close runner-up, offering fast training times and high R-squared. However, as noted previously, it may require more fine-tuning to prevent overfitting or instability across different data subsets. Despite this, its deep learning approach offers potential for further improvement with better regularization.
+
+    Although **Linear Regression** provides simplicity and interpretability, its lower performance metrics suggest that it may not be sufficient for this dataset. While it serves as a useful benchmark, it falls short compared to the flexibility and accuracy of the more advanced models like XGBoost and DNN.
+
+    In conclusion, **XGBoost** is recommended as the primary model due to its optimal balance of accuracy, stability, and efficiency. It outperforms other models while offering the best compromise between computational efficiency and predictive power, making it the most suitable for deployment in this context.
+    """)
+
 
 
 
