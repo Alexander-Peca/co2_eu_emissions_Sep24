@@ -157,113 +157,58 @@ if page == pages[2]:
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION
 # =====================================================================================
-
 if page == pages[3]:
     st.write("Modelisation")
 
-    # Check if df is loaded before accessing it
-    if st.session_state.df is None:
-        st.write("Data is not loaded. Please ensure data is available.")
-    else:
-        # Define file paths where the models are stored 
-        xgboost_model_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\models\xgb_model.joblib'
-        dnn_model_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\models\dnn_model.keras'
-        lr_model_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\models\regression_model.joblib'
+    # Define the metrics for each model
+    model_results = {
+        "Linear Regression": {
+            "Test MSE": 0.126959,
+            "Test R-squared": 0.873043,
+            "CV R-squared": 0.873155,
+            "Training time (mins)": 7.07
+        },
+        "XG Boost": {
+            "Test MSE": 0.026375,
+            "Test R-squared": 0.973626,
+            "CV R-squared": 0.973652,
+            "Training time (mins)": 1.41
+        },
+        "Dense Neural Network": {
+            "Test MSE": 0.061685,
+            "Test R-squared": 0.938316,
+            "CV R-squared": "N/A",
+            "Training time (mins)": 0.26
+        }
+    }
 
-        # Function to load models using caching
-        @st.cache_data
-        def load_models():
-            try:
-                # Load models from the specified paths
-                XG_model = joblib.load(xgboost_model_path)
-                DNN_model = tf.keras.models.load_model(dnn_model_path)
-                LR_model = joblib.load(lr_model_path)
-                st.write("Models loaded successfully!")
-            except Exception as e:
-                st.write(f"Error loading models: {e}")
-                return None, None, None
-            return XG_model, DNN_model, LR_model
+    # Show the checkboxes for each model's metrics
+    st.write("### Choose models to display metrics:")
 
-        # Load models (from cache if possible)
-        XG_model, DNN_model, LR_model = load_models()
+    model_checkboxes = {
+        "Linear Regression": st.checkbox("Linear Regression"),
+        "XG Boost": st.checkbox("XG Boost"),
+        "Dense Neural Network": st.checkbox("Dense Neural Network")
+    }
 
-        # If models are not loaded, show message
-        if XG_model is None or DNN_model is None or LR_model is None:
-            st.write("Models not loaded. Please ensure they are saved and available in the given directory.")
+    # Display the selected model metrics
+    selected_models = []
+    for model, checkbox in model_checkboxes.items():
+        if checkbox:
+            selected_models.append(model)
+            st.write(f"**{model}**")
+            for metric, value in model_results[model].items():
+                st.write(f"{metric}: {value}")
 
-        # Prepare the data (only need to preprocess once)
-        target_column = 'Ewltp (g/km)'  # Target column
-        X = st.session_state.df.drop(columns=[target_column])  # Features
-        y = st.session_state.df[target_column]  # Target variable
+    # Show comparison table when checkbox is selected
+    if st.checkbox('Show all models comparison'):
+        if selected_models:
+            comparison_data = {model: model_results[model] for model in selected_models}
+            comparison_df = pd.DataFrame(comparison_data).T
+            st.write(comparison_df)
+        else:
+            st.write("Please select at least one model to compare.")
 
-        # Train-test split
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        # Scale numerical features
-        scaler_X = StandardScaler()
-        X_train_scaled = scaler_X.fit_transform(X_train)
-        X_test_scaled = scaler_X.transform(X_test)
-
-        # Scaling the target variable as well (optional but can be helpful)
-        scaler_y = StandardScaler()
-        y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1)).flatten()
-        y_test_scaled = scaler_y.transform(y_test.values.reshape(-1, 1)).flatten()
-
-        # Step 1: Select model
-        selected_model = st.selectbox(
-            "Choose a model to evaluate",
-            ["Linear Regression", "XGBoost", "Dense Neural Network"]
-        )
-
-        results = {}
-
-        if selected_model == "Linear Regression":
-            model = LR_model
-            y_pred = model.predict(X_test_scaled)
-            mse = mean_squared_error(y_test_scaled, y_pred)
-            r2 = r2_score(y_test_scaled, y_pred)
-            cv_r2 = cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
-            results[selected_model] = {
-                'Test MSE': mse,
-                'Test R-squared': r2,
-                'Cross-validated R-squared': cv_r2
-            }
-
-        elif selected_model == "XGBoost":
-            model = XG_model
-            y_pred = model.predict(X_test_scaled)
-            mse = mean_squared_error(y_test_scaled, y_pred)
-            r2 = r2_score(y_test_scaled, y_pred)
-            cv_r2 = cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
-            results[selected_model] = {
-                'Test MSE': mse,
-                'Test R-squared': r2,
-                'Cross-validated R-squared': cv_r2
-            }
-
-        elif selected_model == "Dense Neural Network":
-            # For DNN, we do not need to train again, we simply use the already trained model
-            y_pred = DNN_model.predict(X_test_scaled).flatten()
-            mse = mean_squared_error(y_test_scaled, y_pred)
-            r2 = r2_score(y_test_scaled, y_pred)
-            cv_r2 = 'N/A'
-            results[selected_model] = {
-                'Test MSE': mse,
-                'Test R-squared': r2,
-                'Cross-validated R-squared': cv_r2
-            }
-
-        # Display results for the selected model
-        st.write(f"Results for {selected_model}:")
-        st.write(results[selected_model])
-
-        # Show comparison table for all models (if checkbox is selected)
-        if st.checkbox('Show all models comparison'):
-            if not results:  # If results are empty (no models selected yet)
-                st.write("Please select a model to see results.")
-            else:
-                comparison_df = pd.DataFrame(results).T
-                st.write(comparison_df)
 
 # =====================================================================================
 # Conclusion
