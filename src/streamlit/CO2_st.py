@@ -59,32 +59,31 @@ if page == pages[0]:
 # DATA PREPROCESSING SECTION
 # =====================================================================================
 
-# Initialize df as None to avoid reference errors on other pages
-df = None
-
 # Google drive file link of final preprocessed data set
 file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
-
-# Output filename where the file will be saved
 output = 'data.parquet'
 
-if page == pages[1]:  # Only show messages and load data on page 1
+# Check if data is already loaded in session state, if not, load it
+if "df" not in st.session_state:
+    st.session_state.df = None  # Initialize df in session state
+
+if page == pages[1]:  # Only load data when on the "Data and Preprocessing" page
     try:
         # Try downloading the file from Google Drive
         gdown.download(file_url, output, quiet=False)
 
         # Load the data into a DataFrame
-        df = pd.read_parquet(output)
+        st.session_state.df = pd.read_parquet(output)
         st.write("Data loaded successfully from Google Drive")
 
     except Exception as e:
         # If Google Drive download fails, load data from local path
         st.write("Failed to load data from Google Drive. Reverting to local data.")
-        df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
+        st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
     # Display the data
     st.write('Presentation of Data and Preprocessing')
-    st.write("Data Loaded Successfully", df.head())
+    st.write("Data Loaded Successfully", st.session_state.df.head())
 
 # =====================================================================================
 # CHOICE OF MODELS SECTION
@@ -135,7 +134,7 @@ if page == pages[3]:
     st.write("Modelisation")
 
     # Check if df is loaded before accessing it
-    if df is None:
+    if st.session_state.df is None:
         st.write("Data is not loaded. Please ensure data is available.")
     else:
         # Define file paths where the models are stored 
@@ -166,8 +165,8 @@ if page == pages[3]:
 
         # Prepare the data (only need to preprocess once)
         target_column = 'Ewltp (g/km)'  # Target column
-        X = df.drop(columns=[target_column])  # Features
-        y = df[target_column]  # Target variable
+        X = st.session_state.df.drop(columns=[target_column])  # Features
+        y = st.session_state.df[target_column]  # Target variable
 
         # Train-test split
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -237,8 +236,6 @@ if page == pages[3]:
             else:
                 comparison_df = pd.DataFrame(results).T
                 st.write(comparison_df)
-
-
 
 # =====================================================================================
 # Conclusion
