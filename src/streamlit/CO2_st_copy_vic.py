@@ -7,6 +7,8 @@ import gdown  # to load data from Tillmann's google drive
 import time
 import joblib  # For saving and loading models
 import os
+import requests
+from io import BytesIO
 
 # Import standard libraries
 import pandas as pd
@@ -16,18 +18,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import libraries for the modeling
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split
+#from sklearn.model_selection cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import ElasticNetCV
-import xgboost as xgb
+# from sklearn.linear_model import ElasticNetCV
+# import xgboost as xgb
 
 # TensorFlow for DNN
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Input
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping
+# import tensorflow as tf
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras.layers import Dense, Dropout, Input
+# from tensorflow.keras.optimizers import Adam
+# from tensorflow.keras.callbacks import EarlyStopping
 
 
 # =====================================================================================
@@ -61,29 +64,73 @@ if page == pages [0]:
 # DATA PREPROCESSING SECTION
 # =====================================================================================
 
-# Google drive file link of final preprocessed data set
-file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 
-# Output filename where the file will be saved
-output = 'data.parquet'
+# # Google drive file link of final preprocessed data set
+# file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 
-try:
-    # Try downloading the file from Google Drive
-    gdown.download(file_url, output, quiet=False)
+# # Output filename where the file will be saved
+# output = 'data.parquet'
 
-    # Load the data into a DataFrame
-    df = pd.read_parquet(output)
-    st.write("Data loaded successfully from Google Drive")
+# try:
+#     # Try downloading the file from Google Drive
+#     gdown.download(file_url, output, quiet=False)
 
-except Exception as e:
-    # If Google Drive download fails, load data from local path
-    st.write("Failed to load data from Google Drive. Reverting to local data.")
-    df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
+#     # Load the data into a DataFrame
+#     df = pd.read_parquet(output)
+#     st.write("Data loaded successfully from Google Drive")
+
+# except Exception as e:
+#     # If Google Drive download fails, load data from local path
+#     st.write("Failed to load data from Google Drive. Reverting to local data.")
+#     df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
+
+
+# Define the Google Drive file URL
+file_id = "13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"
+file_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+# Initialize an empty DataFrame if it doesn't already exist
+if 'df' not in st.session_state:
+    st.write("..df not in session..")
+    st.session_state.df = None
+else:
+    st.write("..df in session..")
+    
+# Load the data only if it's not already loaded in the session
+if st.session_state.df is None:
+    try:
+        st.write("Loading data from Google Drive...")
+        
+        # Request the file from Google Drive
+        response = requests.get(file_url)
+        response.raise_for_status()  # Ensure the request was successful
+
+        # Load the data directly into a DataFrame
+        st.session_state.df = pd.read_parquet(BytesIO(response.content))
+        df = st.session_state.df
+        st.write("Data loaded successfully from Google Drive")
+
+    except Exception as e:
+        st.write("Failed to load data from Google Drive. Reverting to local data.")
+        # df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
+
+
+else:
+    st.write("Data is already loaded, using cached DataFrame.")
+    df = st.session_state.df  # Create local reference if already cached
+
+
+
+
 
 # Display the data
 if page == pages[1]:
     st.write('Presentation of Data and Preprocessing')
     st.write("Data Loaded Successfully", df.head())
+
+
+
+
 
 # =====================================================================================
 # CHOICE OF MODELS SECTION
