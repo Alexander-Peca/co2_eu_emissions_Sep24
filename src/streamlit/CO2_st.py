@@ -4,39 +4,20 @@
 
 import streamlit as st
 import gdown  # to load data from Tillmann's google drive
-import time
-import joblib  # For saving and loading models
 import os
 
 # Import standard libraries
 import pandas as pd
 import numpy as np
 
-#import matplotlib.pyplot as plt
-#import seaborn as sns
-
-# Import libraries for the modeling
-#from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-#from sklearn.preprocessing import StandardScaler
-#from sklearn.metrics import mean_squared_error, r2_score
-#from sklearn.linear_model import ElasticNetCV
-#import xgboost as xgb
-
-# TensorFlow for DNN
-#import tensorflow as tf
-#from tensorflow.keras.models import Sequential
-#from tensorflow.keras.layers import Dense, Dropout, Input
-#from tensorflow.keras.optimizers import Adam
-#from tensorflow.keras.callbacks import EarlyStopping
-
 
 # =====================================================================================
 # STREAMLIT OVERALL STRUCTURE
 # =====================================================================================
 
-st.title("CO2 emissions by vehicles")
+st.title("CO2 Emissions by Vehicles")
 pages = ["Home", "Data and Preprocessing", "Choice of Models", "Evaluating Model Performance", "Conclusions"]
-page = st.sidebar.radio("Go to", pages)
+page = st.sidebar.radio("Navigate to:", pages)
 
 # =====================================================================================
 # HOME SECTION
@@ -45,21 +26,29 @@ page = st.sidebar.radio("Go to", pages)
 if page == pages[0]:
     st.write('## Context')
 
+    # Adding an image to give context
     image_url = "https://www.mcilvainmotors.com/wp-content/uploads/2024/02/Luxury-Car-Increased-Emission.jpg"
     st.image(image_url, caption="Luxury Car Emissions", use_container_width=True)
-    
-    # Display the text
-    st.write("Identifying the vehicles that emit the most CO2 is important to identify the technical characteristics that play a role in pollution.") 
-    st.write("Predicting this pollution in advance makes it possible to prevent the appearance of new types of vehicles (new series of cars for example.)")
 
-    st.write('**Project Purpose and Goals**')
-    st.write("This project focuses on using machine learning to help the automotive industry meet the EU's 2035 target of 0 g CO₂/km for passenger cars and vans. By analyzing extensive vehicle data, machine learning models can identify factors influencing CO₂ emissions, aiding manufacturers in designing low-emission vehicles. This ensures compliance with regulations, reduces penalties, and enhances brand reputation. The project also aims to optimize production strategies by enabling early design adjustments, especially as the industry shifts towards zero-emission vehicles and considers alternative energy sources like hydrogen or electricity for appliances in motorhomes (as a collateral effect)")
+    # Description text
+    st.write("""
+        **Understanding the problem:**
+        Identifying the vehicles that emit the most CO2 is crucial to understanding the technical characteristics that contribute to pollution. 
+        Predicting this pollution in advance helps prevent the development of new types of vehicles that may worsen emissions.
+    """)
+
+    # Project Purpose and Goals
+    st.write('### Project Purpose and Goals')
+    st.write("""
+        This project uses machine learning to help the automotive industry meet the EU’s 2035 target of 0 g CO₂/km for passenger cars and vans. 
+        By analyzing extensive vehicle data, we aim to identify factors influencing CO₂ emissions, helping manufacturers design low-emission vehicles. 
+        Additionally, the project optimizes production strategies, enabling early design adjustments as the industry shifts toward zero-emission vehicles.
+    """)
 
 # =====================================================================================
 # DATA PREPROCESSING SECTION
 # =====================================================================================
 
-# Google drive file link of final preprocessed data set
 file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 output = 'data.parquet'
 
@@ -67,22 +56,17 @@ output = 'data.parquet'
 if "df" not in st.session_state:
     st.session_state.df = None  # Initialize df in session state
 
-if page == pages[1]:  # Only load data when on the "Data and Preprocessing" page
+if page == pages[1]:
     try:
-        # Try downloading the file from Google Drive
         gdown.download(file_url, output, quiet=False)
-
-        # Load the data into a DataFrame
         st.session_state.df = pd.read_parquet(output)
         st.write("Data loaded successfully from Google Drive")
 
     except Exception as e:
-        # If Google Drive download fails, load data from local path
         st.write("Failed to load data from Google Drive. Reverting to local data.")
         st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
-    # Display the data
-    st.write('Presentation of Data and Preprocessing')
+    st.write('### Presentation of Data and Preprocessing')
     st.write("Data Loaded Successfully", st.session_state.df.head())
 
 # =====================================================================================
@@ -90,54 +74,50 @@ if page == pages[1]:  # Only load data when on the "Data and Preprocessing" page
 # =====================================================================================
 
 if page == pages[2]:
-    st.write("## Selecting the appropriate algorithm")
+    st.write("## Selecting the Appropriate Algorithm")
+
     image_url = "https://blog.medicalalgorithms.com/wp-content/uploads/2015/03/medical-algorithm-definition.jpg"
-    st.image(image_url, caption="Machine learning, deep learning?", use_container_width=True)
+    st.image(image_url, caption="Machine Learning and Deep Learning?", use_container_width=True)
 
-    st.write("Since our project involves predicting a continuous target variable, Worldwide Harmonised Light vehicles Test Procedure (Ewltp (g/km)), this is inherently a regression problem.") 
-    st.write("Our primary approach was to establish a robust baseline using multilinear regression, a widely accepted model for regression tasks.") 
-    st.write("This choice allowed us to evaluate the model's performance under straightforward, interpretable assumptions about linear relationships between features and the target variable.") 
+    st.write("""
+        Since the task involves predicting a continuous target variable, the Worldwide Harmonised Light vehicles Test Procedure (Ewltp (g/km)),
+        this is inherently a regression problem. Our primary approach was to establish a robust baseline using multilinear regression, 
+        a widely accepted model for regression tasks.
+    """)
 
-    st.write('**First models**')
-    st.write("1- **Linear Regression with Elastic Net**")
-    st.write("2- **Decision Trees**: chosen for their interpretability and ease of handling non-linear relationships. However, prone to overfitting.")
-    st.write("3- **Random Forests**: as an ensemble method that aggregates multiple Decision Trees. They are more robust and show reduced tendency to overfit compared to a single Decision Tree.")
-    st.write("4- **XGBoost**: also a tree-based ensemble method, which improves performance by sequentially building trees and learning from residual errors")
-    st.write("5- **Dense Neural Networks**: lastly introduced as a deep learning approach to explore the possibility of capturing highly complex interactions among features that may not be adequately handled by tree-based algorithms")
+    st.write('### First Models')
+    st.write("""
+        1. **Linear Regression with Elastic Net**  
+        2. **Decision Trees**: Easy to interpret but prone to overfitting.  
+        3. **Random Forests**: Ensemble method reducing overfitting.
+        4. **XGBoost**: Sequential tree-based method that captures residual errors for better performance.
+        5. **Dense Neural Networks**: Deep learning approach exploring complex relationships.
+    """)
 
-    st.write('**Final models: Exclusion of Decision Trees and Random Forests**')
-    st.markdown("""- Redundancy with XGBoost: it's advanced algorithm that surpasses the performance of Decision Trees and Random Forests.
-                - In our tests, XGBoost not only yielded higher accuracy but also demonstrated more stable performance across various data splits.
-                - XGBoost is optimized for scalability with large datasets and offers greater control over hyperparameters, making it better suited for fine-tuning (Literature). 
-""")
+    st.write('### Final Models: Exclusion of Decision Trees and Random Forests')
+    st.markdown("""
+        - **Redundancy with XGBoost**: XGBoost surpasses Decision Trees and Random Forests in accuracy and stability.
+        - **XGBoost Optimization**: Offers greater scalability with large datasets and better hyperparameter control.
+    """)
 
-    st.write('**Optimization and Evaluation Techniques**')
-    st.write("The table below provides an overview of the optimization and evaluation used for each model, along with interpretability methods")
+    st.write('### Optimization and Evaluation Techniques')
+    st.write("""
+        Below is an overview of the optimization techniques used for each model, along with interpretability methods.
+    """)
 
-    # Define the table in Markdown format
     markdown_table = """
     | Models/Techniques       | Grid Search              | Elastic Net                               | Cross Validation                  | Interpretability    |
     |-------------------------|--------------------------|-------------------------------------------|-----------------------------------|---------------------|
-    | Linear Regression       | No                       | Yes (given persistent multicollinearity)  | Yes (to evaluate generalizability) | Feature Importance  |
-    | XG Boost                | Yes (opt. parameters)    | Not applicable                            | Yes (evaluate generalizability)   | Shap values         |
-    | Dense Neural Network    | No                       | Not applicable, but Ridge regularization was applied | No, but a validation set was used. | Not applied         |
+    | Linear Regression       | No                       | Yes (persistent multicollinearity)  | Yes (generalizability) | Feature Importance  |
+    | XG Boost                | Yes (opt. parameters)    | Not applicable                            | Yes (generalizability)   | Shap values         |
+    | Dense Neural Network    | No                       | Not applicable, Ridge regularization | No (validation set used) | Not applied         |
     """
 
-    # Display the table in Streamlit
     st.markdown(markdown_table)
 
 
-
-    st.write('**Interpretability**')
-
-    # Display images showcasing feature importance for Linear Regression and XGBoost
-    #linear_regression_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance Linear Regression.png'
-    #xgboost_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance XG Boost.png'
-
-    # Show images in Streamlit
-    #st.image(linear_regression_image_path, caption="Feature Importance - Linear Regression", use_column_width=True)
-    #st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_column_width=True)
-
+    st.write('### Interpretability')
+    
     # Google Drive URLs for the images
     linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
     xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
@@ -157,10 +137,11 @@ if page == pages[2]:
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION
 # =====================================================================================
-if page == pages[3]:
-    st.write("Modelisation")
 
-    # Define the metrics for each model
+if page == pages[3]:
+    st.write("## Modelisation")
+
+    # Metrics for each model
     model_results = {
         "Linear Regression": {
             "Test MSE": 0.126959,
@@ -182,7 +163,6 @@ if page == pages[3]:
         }
     }
 
-    # Show the checkboxes for each model's metrics
     st.write("### Choose models to display metrics:")
 
     model_checkboxes = {
@@ -191,7 +171,6 @@ if page == pages[3]:
         "Dense Neural Network": st.checkbox("Dense Neural Network")
     }
 
-    # Display the selected model metrics
     selected_models = []
     for model, checkbox in model_checkboxes.items():
         if checkbox:
@@ -209,41 +188,42 @@ if page == pages[3]:
         else:
             st.write("Please select at least one model to compare.")
 
-
 # =====================================================================================
-# Conclusion
+# CONCLUSIONS SECTION
 # =====================================================================================
-
 
 if page == pages[4]:
-    st.write("## Conclusion about the models")
+    st.write("## Conclusion about the Models")
 
     st.write("""
-    **XGBoost** emerges as the strongest model in terms of predictive accuracy and robustness, with the lowest Mean Squared Error (MSE), highest R-squared, and a reasonable training time. Its decision tree-based structure allows it to effectively capture non-linear relationships, which linear regression cannot. XGBoost’s balance between performance and efficiency makes it a highly suitable choice for this task.
-
-    **Dense Neural Network (DNN)** is a close runner-up, offering fast training times and high R-squared. However, as noted previously, it may require more fine-tuning to prevent overfitting or instability across different data subsets. Despite this, its deep learning approach offers potential for further improvement with better regularization.
-
-    Although **Linear Regression** provides simplicity and interpretability, its lower performance metrics suggest that it may not be sufficient for this dataset. While it serves as a useful benchmark, it falls short compared to the flexibility and accuracy of the more advanced models like XGBoost and DNN.
-
-    In conclusion, **XGBoost** is recommended as the primary model due to its optimal balance of accuracy, stability, and efficiency. It outperforms other models while offering the best compromise between computational efficiency and predictive power, making it the most suitable for deployment in this context.
+    **XGBoost** emerges as the strongest model in terms of predictive accuracy, with the lowest Mean Squared Error (MSE) and the highest R-squared. 
+    It effectively captures non-linear relationships that Linear Regression cannot, offering an optimal balance of performance and efficiency.
     """)
 
-
-    st.write("## Conclusion about subject matter")
-    st.write("""Unsurprisingly, reducing autofeatures such as Weight, size, engine capacity (ccm), engine power, as well as, adopting single or better combined innovative technologies like exterior LED lights and/or 12 volt efficient alternators will reduce the CO2 emissions.
-                In general terms, shifting to electric powered vehicles emitting by definition 0 gr/km CO2 is the way to go and which has been adopted by almost all car manufacturers.""")
-
-
-    st.write("## Prospects for improvement") 
     st.write("""
-    **Ensemble Methods**: Combining predictions from models like Linear Regression, XGBoost, and Dense Neural Networks (DNN) in a stacked ensemble could leverage their strengths and enhance overall accuracy.
+    **Dense Neural Network (DNN)** is a close runner-up, with fast training times and high R-squared. However, it requires further fine-tuning to prevent overfitting.
+    """)
 
-    **Hyperparameter Tuning**: While grid search optimized some models, more exhaustive tuning or Bayesian Optimization could improve performance, particularly for complex models like XGBoost and DNN.
+    st.write("""
+    Although **Linear Regression** provides interpretability and simplicity, its performance metrics suggest it is not enough for this dataset. 
+    It is useful as a benchmark, but it falls behind compared to XGBoost and DNN.
+    """)
 
-    **Deep Learning Architectures**: Exploring architectures like Convolutional Neural Networks (CNNs) for structured data or Residual Connections/Layer Normalization could reduce overfitting and capture more nuanced relationships.
+    st.write("""
+    In conclusion, **XGBoost** is recommended as the primary model due to its optimal balance of accuracy, stability, and efficiency.
+    """)
 
-    **Cross-validation with Time Series Splits**: Time-based cross-validation could improve generalization across different time periods, ensuring better model performance on future data.
+    st.write("## Conclusion about the Subject Matter")
+    st.write("""
+    Shifting to electric-powered vehicles emitting 0 CO₂/km is the future, as car manufacturers are increasingly adopting this standard.
+    """)
 
-    **Data Augmentation**: If certain categories are underrepresented, techniques like SMOTE could balance the dataset by creating synthetic data, improving model robustness.
+    st.write("## Prospects for Improvement")
+    st.write("""
+    - **Ensemble Methods**: Combining predictions from Linear Regression, XGBoost, and Dense Neural Networks could improve accuracy.
+    - **Hyperparameter Tuning**: More exhaustive tuning like Bayesian Optimization could optimize XGBoost and DNN.
+    - **Deep Learning Architectures**: Exploring CNNs or Residual Connections could improve model performance.
+    - **Cross-validation with Time Series Splits**: Ensures better model generalization across different periods.
+    - **Data Augmentation**: Techniques like SMOTE could balance underrepresented categories in the dataset.
     """)
 
