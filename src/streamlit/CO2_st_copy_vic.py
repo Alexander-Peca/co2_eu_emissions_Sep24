@@ -9,6 +9,7 @@ import joblib  # For saving and loading models
 import os
 import requests
 from io import BytesIO
+from PIL import Image
 
 # Import standard libraries
 import pandas as pd
@@ -26,7 +27,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 # import xgboost as xgb
 
 # TensorFlow for DNN
-import tensorflow as tf
+# import tensorflow as tf
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras.layers import Dense, Dropout, Input
 # from tensorflow.keras.optimizers import Adam
@@ -176,6 +177,20 @@ if page == pages[2]:
     # Display the table in Streamlit
     st.markdown(markdown_table)
 
+    # Google Drive image URLs
+    linear_regression_image_url = "https://drive.google.com/uc?export=view&id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"
+    xgboost_image_url = "https://drive.google.com/uc?export=view&id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"
+
+    LinReg_img_resp = requests.get(linear_regression_image_url)
+    LinReg_img = Image.open(BytesIO(LinReg_img_resp.content))
+
+    XGB_img_resp = requests.get(xgboost_image_url)
+    XGB_img = Image.open(BytesIO(XGB_img_resp.content))
+
+    # Show images in Streamlit without downloading
+    st.image(LinReg_img, caption="Feature Importance - Linear Regression", use_container_width=True)
+    st.image(XGB_img, caption="SHAP Values - XGBoost", use_container_width=True)
+
     
 
 
@@ -226,14 +241,14 @@ if page == pages[3]:
     # models URLs
     XG_model_url = "https://drive.google.com/uc?id=171P5hEOH5HWQ7n0qIM5ahlMl4yG4NlFe"  #joblib
     LR_model_url =  "https://drive.google.com/uc?id=1gY8JymL1UBOrRjr4GDuvIxX4ZOFn_X4o"  #joblib
-    DNN_model_url = "https://drive.google.com/uc?id=1K65XtPYgXJ0wkxBm2a0HJiQRL0cIz_i9"  #joblib
+    # DNN_model_url = "https://drive.google.com/uc?id=1K65XtPYgXJ0wkxBm2a0HJiQRL0cIz_i9"  #joblib
     # DNN_model_url = "https://drive.google.com/uc?id=1ZqiNUwoRJ47I4vNuU-Fj6q15hJn3L0wT"  #keras
 
     # load models
     XG_model = load_model_from_gdrive(XG_model_url)
     LR_model =  load_model_from_gdrive(LR_model_url)
     #DNN_model = load_model_from_gdrive(DNN_model_url)
-    DNN_model = NotImplemented
+    DNN_model = None
 
 
 
@@ -314,18 +329,18 @@ if page == pages[3]:
             'Cross-validated R-squared': cv_r2
         }
 
-    elif selected_model == "Dense Neural Network":
+    #elif selected_model == "Dense Neural Network":
         # DNN_model.fit(X_train_scaled, y_train_scaled, epochs=20, batch_size=16, callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)], verbose=1)
         # No need to retrain/fit the model, snce trained model was loaded
-        y_pred = DNN_model.predict(X_test_scaled).flatten()
-        mse = mean_squared_error(y_test_scaled, y_pred)
-        r2 = r2_score(y_test_scaled, y_pred)
-        cv_r2 = None
-        results[selected_model] = {
-            'Test MSE': mse,
-            'Test R-squared': r2,
-            'Cross-validated R-squared': cv_r2
-        }
+        # y_pred = DNN_model.predict(X_test_scaled).flatten()
+        # mse = mean_squared_error(y_test_scaled, y_pred)
+        # r2 = r2_score(y_test_scaled, y_pred)
+        # cv_r2 = None
+        # results[selected_model] = {
+        #     'Test MSE': mse,
+        #     'Test R-squared': r2,
+        #     'Cross-validated R-squared': cv_r2
+        #}
 
     # Display results for the selected model
     st.write(f"Results for {selected_model}:")
@@ -343,12 +358,12 @@ if page == pages[3]:
     st.write('**Examples of Interpretability**')
 
     # Define paths to images
-    linear_regression_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance Linear Regression.png'
-    xgboost_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance XG Boost.png'
+    # linear_regression_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance Linear Regression.png'
+    # xgboost_image_path = r'C:\Users\alexa\Downloads\aug24_bds_int---co2\src\visualization\Feature Importance XG Boost.png'
 
     # Display the images in Streamlit
-    st.image(linear_regression_image_path, caption='Feature Importance - Linear Regression', use_column_width=True)
-    st.image(xgboost_image_path, caption='SHAP Values - XGBoost', use_column_width=True)
+    # st.image(linear_regression_image_path, caption='Feature Importance - Linear Regression', use_column_width=True)
+    # st.image(xgboost_image_path, caption='SHAP Values - XGBoost', use_column_width=True)
 
 
 
