@@ -53,18 +53,19 @@ file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  #
 output = 'data.parquet'
 
 # Check if data is already loaded in session state, if not, load it
-if "df" not in st.session_state:
-    st.session_state.df = None  # Initialize df in session state
+# if "df" not in st.session_state:
+#    st.session_state.df = None  # Initialize df in session state
 
 if page == pages[1]:
-    try:
-        gdown.download(file_url, output, quiet=False)
-        st.session_state.df = pd.read_parquet(output)
-        st.write("Data loaded successfully from Google Drive")
+    if "df" not in st.session_state:
+        try:
+            gdown.download(file_url, output, quiet=False)
+            st.session_state.df = pd.read_parquet(output)
+            st.write("Data loaded successfully from Google Drive")
 
-    except Exception as e:
-        st.write("Failed to load data from Google Drive. Reverting to local data.")
-        st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
+        except Exception as e:
+            st.write("Failed to load data from Google Drive. Reverting to local data.")
+            st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
     st.write('### Presentation of Data and Preprocessing')
     st.write("Data Loaded Successfully", st.session_state.df.head())
