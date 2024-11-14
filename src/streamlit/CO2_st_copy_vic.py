@@ -199,53 +199,50 @@ if page == pages[3]:
     # st.write(xgboost_model_path)
 
     
-    # URL for the model file on GitHub (using raw link)
-    model_url = "https://raw.githubusercontent.com/DataScientest-Studio/aug24_bds_int---co2/main/src/models/xgb_model.joblib"
-
-    # Your GitHub personal access token
-    access_token = "your_tokem"
-
-    # Set up headers for authentication
-    headers = {"Authorization": f"token {access_token}"}
-
-    try:
-        st.write("Downloading and loading the XGBoost model from GitHub...")
-
-        # Download the model content with authentication
-        response = requests.get(model_url, headers=headers)
-        response.raise_for_status()  # Check if the request was successful
-
-        # Load the model from the downloaded content
-        XG_model = joblib.load(BytesIO(response.content))
-        st.write("Model loaded successfully from GitHub.")
-
-    except requests.exceptions.HTTPError as e:
-        st.write("Failed to load the model from GitHub.")
-        st.write(f"HTTP Error: {e}")
-    except Exception as e:
-        st.write("An error occurred while loading the model.")
-        st.write(e)
-
-
-
-
-    # dnn_model_path = os.path.join(load_dir, 'dnn_model.keras')
-    # lr_model_path = os.path.join(load_dir, 'regression_model.joblib')
-
-    # debug info: shows correct path BUT not able to load models...
-    # st.write("Current directory:", current_dir)
-    # st.write("Models directory:", load_dir)
-    # st.write("XGBoost model path:", xgboost_model_path)
-    # st.write("DNN model path:", dnn_model_path)
-    # st.write("LR model path:", lr_model_path)
-
     # Function to load models using caching
     @st.cache_data
+    def load_model_from_gdrive(model_url):
+    
+        try:
+            # st.write(f"Downloading and loading the model from {model_url}...")
+            
+            # Download the model content without authentication
+            response = requests.get(model_url)
+            response.raise_for_status()  # Check if the request was successful
+            
+            # Load the model from the response content
+            model = joblib.load(BytesIO(response.content))
+            st.write("Model loaded successfully from Google Drive.")
+            return model
+            
+        except requests.exceptions.HTTPError as e:
+            st.write("Failed to load the model from Google Drive.")
+            st.write(f"HTTP Error: {e}")
+        except Exception as e:
+            st.write("An error occurred while loading the model.")
+            st.write(e)
+            return None
+
+    # models URLs
+    XG_model_url = "https://drive.google.com/uc?id=171P5hEOH5HWQ7n0qIM5ahlMl4yG4NlFe"  #joblib
+    LR_model_url =  "https://drive.google.com/uc?id=1gY8JymL1UBOrRjr4GDuvIxX4ZOFn_X4o"  #joblib
+    DNN_model_url = "https://drive.google.com/uc?id=1K65XtPYgXJ0wkxBm2a0HJiQRL0cIz_i9"  #joblib
+    # DNN_model_url = "https://drive.google.com/uc?id=1ZqiNUwoRJ47I4vNuU-Fj6q15hJn3L0wT"  #keras
+
+    # load models
+    XG_model = load_model_from_gdrive(XG_model_url)
+    LR_model =  load_model_from_gdrive(LR_model_url)
+    #DNN_model = load_model_from_gdrive(DNN_model_url)
+    DNN_model = NotImplemented
+
+
+
+    
     def load_models():
         try:
             # Check if models are loaded from cache
-            XG_model = joblib.load(xgboost_model_path)
-            #DNN_model = tf.keras.models.load_model(dnn_model_path)
+            # XG_model = joblib.load(xgboost_model_path)
+            # DNN_model = tf.keras.models.load_model(dnn_model_path)
             #LR_model = joblib.load(lr_model_path)
             st.write("Models loaded successfully!")
         except:
@@ -254,13 +251,18 @@ if page == pages[3]:
         return XG_model, DNN_model, LR_model
 
     # Load models (from cache if possible)
-    XG_model, DNN_model, LR_model = load_models()
+    # XG_model, DNN_model, LR_model = load_models()
 
     # If models are not loaded, show message
     if XG_model is None or DNN_model is None or LR_model is None:
             st.write("Models not loaded. Please ensure they are saved and available in the given directory.")
             if XG_model is not None:
                 st.write("XG_model loaded")
+            if LR_model is not None:
+                st.write("LR_model loaded")
+            if DNN_model is not None:
+                st.write("DNN_model loaded")
+
 
     # Prepare the data
     target_column = 'Ewltp (g/km)'  # Target column
@@ -291,9 +293,9 @@ if page == pages[3]:
     if selected_model == "Linear Regression":
         model = LR_model
         y_pred = model.predict(X_test_scaled)
-        mse = mean_squared_error(y_test_scaled, y_pred)
-        r2 = r2_score(y_test_scaled, y_pred)
-        cv_r2 = cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
+        mse = mean_squared_error(y_test, y_pred) # changing y_test_sclaled to y_test
+        r2 = r2_score(y_test, y_pred)            # changing y_test_sclaled to y_test
+        cv_r2 = None #cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
         results[selected_model] = {
             'Test MSE': mse,
             'Test R-squared': r2,
@@ -303,9 +305,9 @@ if page == pages[3]:
     elif selected_model == "XGBoost":
         model = XG_model
         y_pred = model.predict(X_test_scaled)
-        mse = mean_squared_error(y_test_scaled, y_pred)
-        r2 = r2_score(y_test_scaled, y_pred)
-        cv_r2 = cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
+        mse = float(mean_squared_error(y_test, y_pred))   # changing y_test_sclaled to y_test + type: float
+        r2 = r2_score(y_test, y_pred)                     # changing y_test_sclaled to y_test
+        cv_r2 = None # cross_val_score(model, X_train_scaled, y_train_scaled, cv=5, scoring='r2').mean()
         results[selected_model] = {
             'Test MSE': mse,
             'Test R-squared': r2,
@@ -313,11 +315,12 @@ if page == pages[3]:
         }
 
     elif selected_model == "Dense Neural Network":
-        DNN_model.fit(X_train_scaled, y_train_scaled, epochs=20, batch_size=16, callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)], verbose=1)
+        # DNN_model.fit(X_train_scaled, y_train_scaled, epochs=20, batch_size=16, callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)], verbose=1)
+        # No need to retrain/fit the model, snce trained model was loaded
         y_pred = DNN_model.predict(X_test_scaled).flatten()
         mse = mean_squared_error(y_test_scaled, y_pred)
         r2 = r2_score(y_test_scaled, y_pred)
-        cv_r2 = 'N/A'
+        cv_r2 = None
         results[selected_model] = {
             'Test MSE': mse,
             'Test R-squared': r2,
