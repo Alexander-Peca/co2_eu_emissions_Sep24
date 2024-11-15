@@ -164,7 +164,17 @@ if page == pages[3]:
         }
     }
 
-    st.write("### Choose models to display metrics:")
+    # Display comparison table when checkbox is selected
+    st.write("### Show all models comparison:")
+    
+    show_comparison = st.checkbox('Show all models comparison')
+
+    if show_comparison:
+        comparison_df = pd.DataFrame(model_results).T
+        st.write(comparison_df)
+
+    # Metrics for individual models
+    st.write("### Choose models to display individual metrics:")
 
     model_checkboxes = {
         "Linear Regression": st.checkbox("Linear Regression"),
@@ -172,22 +182,11 @@ if page == pages[3]:
         "Dense Neural Network": st.checkbox("Dense Neural Network")
     }
 
-    selected_models = []
     for model, checkbox in model_checkboxes.items():
         if checkbox:
-            selected_models.append(model)
             st.write(f"**{model}**")
             for metric, value in model_results[model].items():
                 st.write(f"{metric}: {value}")
-
-    # Show comparison table when checkbox is selected
-    if st.checkbox('Show all models comparison'):
-        if selected_models:
-            comparison_data = {model: model_results[model] for model in selected_models}
-            comparison_df = pd.DataFrame(comparison_data).T
-            st.write(comparison_df)
-        else:
-            st.write("Please select at least one model to compare.")
 
 # =====================================================================================
 # CONCLUSIONS SECTION
