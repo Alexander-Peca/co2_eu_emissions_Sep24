@@ -155,17 +155,21 @@ if page == pages[2]:
     # linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
     linear_regression_image_url = "https://drive.google.com/uc?id=1nO5_SZ8EBZ7qcrcKo2uJ_U_hJeDnPoUP"  # # Feature Importance for Linear Regression_signed_weighted
     xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
+    dnn_image_url = "https://drive.google.com/uc?id=1TzyMGuRzpJnLEidZpsZbcnHVO42tMEYh"      # Feature Importance for DNN
 
     # Download the images
     linear_regression_image_path = "linear_regression_feature_importance.png"
     xgboost_image_path = "xgboost_feature_importance.png"
+    dnn_image_path = "dnn_feature_importance.png"
 
     gdown.download(linear_regression_image_url, linear_regression_image_path, quiet=False)
     gdown.download(xgboost_image_url, xgboost_image_path, quiet=False)
+    gdown.download(dnn_image_url, dnn_image_path, quiet=False)
 
     # Show images in Streamlit
     st.image(linear_regression_image_path, caption="Feature Importance - Linear Regression", use_container_width=True)
     st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_container_width=True)
+    st.image(dnn_image_path, caption="Weights First Layer - DNN", use_container_width=True)
 
 
 # =====================================================================================
