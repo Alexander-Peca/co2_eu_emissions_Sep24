@@ -5,6 +5,13 @@
 import streamlit as st
 import gdown  # to load data from Tillmann's google drive
 import os
+import sys
+
+# Add the src directory to the system path
+sys.path.append(os.path.abspath(os.path.join('..')))
+
+# Import self-defined functions
+from utils_CO2 import *
 
 # Import standard libraries
 import pandas as pd
@@ -52,6 +59,13 @@ if page == pages[0]:
 file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 output = 'data.parquet'
 
+# Google Drive URLs for the images
+# linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
+linear_regression_image_url = "https://drive.google.com/file/d/1nO5_SZ8EBZ7qcrcKo2uJ_U_hJeDnPoUP"
+xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
+
+
+
 # Check if data is already loaded in session state, if not, load it
 # if "df" not in st.session_state:
 #    st.session_state.df = None  # Initialize df in session state
@@ -67,8 +81,26 @@ if page == pages[1]:
             st.write("Failed to load data from Google Drive. Reverting to local data.")
             st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
+    df = st.session_state.df
     st.write('### Presentation of Data and Preprocessing')
-    st.write("Data Loaded Successfully", st.session_state.df.head())
+    st.write("Data Loaded Successfully", df.head(),df['Mh_Other'].value_counts())
+
+    
+    # get sorted column names
+    columns = sort_columns(df)
+    
+    ######################################################
+    # Create an HTML string with column names separated by commas
+    columns_html = ", ".join([f"<span>{col}</span>" for col in columns])
+    # Display using markdown with unsafe_allow_html=True
+    st.markdown(f"**Columns in DataSet:** {columns_html}", unsafe_allow_html=True)
+    
+    ########################################
+    with st.expander("Show Columns in DataSet"):
+        columns_str = ", ".join(columns)
+        st.write(columns_str)
+   
+
 
 # =====================================================================================
 # CHOICE OF MODELS SECTION
@@ -120,7 +152,8 @@ if page == pages[2]:
     st.write('### Interpretability')
     
     # Google Drive URLs for the images
-    linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
+    # linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
+    linear_regression_image_url = "https://drive.google.com/uc?id=1nO5_SZ8EBZ7qcrcKo2uJ_U_hJeDnPoUP"  # # Feature Importance for Linear Regression_signed_weighted
     xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
 
     # Download the images

@@ -2068,24 +2068,24 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     """
     One-hot encodes all unique values present in each categorical column in the DataFrame.
     Excludes columns starting with 'exclude_prefix' and avoids the dummy variable trap.
-    
+
     Parameters:
     - df (pd.DataFrame): The input DataFrame containing categorical columns.
     - exclude_prefix (str): Prefix of column names to exclude from encoding.
-    
+
     Returns:
     - pd.DataFrame: The DataFrame with one-hot encoded columns added and original categorical columns removed.
     """
-    
+
     print ("\n======  Encoding Categorical Variables ===========")
-    
+
     # Identify categorical columns to encode, excluding those starting with 'exclude_prefix'
     cat_columns = [
         col for col in df.select_dtypes(include=['category', 'object']).columns 
         if not col.startswith(exclude_prefix)
     ]
     print(f"Identified categorical columns to encode (excluding '{exclude_prefix}'): {cat_columns}")
-    
+
     if not cat_columns:
         print("No categorical columns found for encoding. Skipping one-hot encoding.")
         return df
@@ -2098,26 +2098,21 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     # One-hot encode with `drop_first=True` to avoid dummy variable trap
     df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=drop_first)
     print(f"One-hot encoding completed with dummy variable trap prevention for columns: {cat_columns}")
-    
+
     # Print the number of encoded values (columns) and the encoded values per original categorical column
     for col in cat_columns:
         encoded_values = df[col].cat.categories.tolist()[1:]  # Exclude the first as baseline
         num_encoded_cols = len(encoded_values)
+        dropped_category = df[col].cat.categories[0]  # The dropped baseline category
         print(f"\nColumn '{col}' encoded into {num_encoded_cols} values (baseline category dropped):")
+        print(f"Dropped category: {dropped_category}")
         print(f"Encoded values: {encoded_values}")
-    
+
     print("=======================\n")
-    
+
     return df_encoded
 
 
-
-
-
-
-############################################################################################
-################### #########################
-############################################################################################
 
 # drop duplicates and calculate frequencies from #identical occurences
 
@@ -2954,4 +2949,52 @@ def plot_weighted_boxplots(df, weight_column, exclude_columns=None, IQR_distance
         gc.collect()
 
 
+
+############################################################################################
+##############################  For Streamlit Presentation #########################################
+############################################################################################
+
+########## sort columns ##############
+from collections import defaultdict
+
+def sort_columns(df):
+    """
+    Sorts columns in a DataFrame by the following rules:
+    1. Numerical columns come first, sorted alphabetically.
+    2. One-hot encoded categorical columns (contain '_') come next, sorted alphabetically.
+       - `_other` or `_Other` columns are placed at the end of their respective groups.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame whose columns need to be sorted.
+
+    Returns:
+        list: A sorted list of column names.
+    """
+    # Identify one-hot encoded categorical columns (contain '_')
+    categorical = [col for col in df.columns if '_' in col]
+
+    # Group columns by their prefix (everything before the last '_')
+    categorical_groups = defaultdict(list)
+    for col in categorical:
+        prefix = '_'.join(col.split('_')[:-1])  # Extract prefix
+        categorical_groups[prefix].append(col)
+
+    # Sort columns within each group, moving `_other` (case insensitive) to the end
+    sorted_categorical = []
+    for prefix, cols in sorted(categorical_groups.items()):
+        # Separate `_other` or `_Other` columns
+        main_cols = sorted([col for col in cols if not col.lower().endswith('_other')])
+        other_cols = sorted([col for col in cols if col.lower().endswith('_other')])
+        sorted_categorical.extend(main_cols + other_cols)
+
+    # Identify numerical columns (those not in categorical)
+    numerical = [col for col in df.columns if col not in categorical]
+
+    # Combine sorted columns
+    columns_sorted = sorted(numerical) + sorted_categorical
+
+    # Verify all columns are accounted for
+    assert set(columns_sorted) == set(df.columns), "Mismatch in column categorization!"
+
+    return columns_sorted
 
