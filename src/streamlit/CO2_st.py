@@ -188,9 +188,13 @@ if page == pages[2]:
     st.image(dnn_image_path, caption="Weights First Layer - DNN", use_container_width=True)
 
 
+
+
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION
 # =====================================================================================
+import requests
+from io import BytesIO
 
 if page == pages[3]:
     st.write("## Modelisation")
@@ -198,48 +202,117 @@ if page == pages[3]:
     # Metrics for each model
     model_results = {
         "Linear Regression": {
-            "Test MSE": 0.126959,
-            "Test R-squared": 0.873043,
-            "CV R-squared": 0.873155,
+            "Test MSE (scl.)": 0.12,
+            "Test MSE": 120.5,
+            "Test RMSE": 11.0,
+            "Test MAE": 8.3,
+            "Test R²": 0.87,
+            "CV R²": 0.87,
             "Training time (mins)": 7.07
         },
-        "XG Boost": {
-            "Test MSE": 0.026375,
-            "Test R-squared": 0.973626,
-            "CV R-squared": 0.973652,
-            "Training time (mins)": 1.41
-        },
         "Dense Neural Network": {
-            "Test MSE": 0.061685,
-            "Test R-squared": 0.938316,
-            "CV R-squared": "N/A",
+            "Test MSE (scl.)": 0.06,
+            "Test MSE": 64.0,
+            "Test MAE": 6.2,
+            "Test RMSE": 8.0,
+            "Test R²": 0.93,
+            "CV R²": None,
             "Training time (mins)": 0.26
+        },
+        "XG Boost": {
+            "Test MSE (scl.)": 0.02,
+            "Test MSE": 25.1,
+            "Test MAE": 3.7,
+            "Test RMSE": 5.0,
+            "Test R²": 0.97,
+            "CV R²": 0.97,
+            "Training time (mins)": 1.41
         }
     }
 
+    # Image URLs for each model
+    image_urls = {
+        "Linear Regression": [
+            "https://drive.google.com/uc?id=13r71MniN62xtjOq4jMz8Y6rlwx7qvAv8", # LR Actual vs Predicted
+            "https://drive.google.com/uc?id=1UKd5oawhUEuaURpA3iWMIt6NmSNnlikX", # LR Residuals
+            "https://drive.google.com/uc?id=1evpCV76mWn8emda25Qzb7HJXHcJTgkNM", # LR QQ-Plot
+            "https://drive.google.com/uc?id=1hKXCqHT9sXjk_EywRDsHFP19_-FJEBao", # LR Residuals Histogram
+        ],
+        "XG Boost": [
+            "https://drive.google.com/uc?id=1RsdH50v7UzH3jVbh4HN7AfzLC6xeZORw", # XGB Actual vs Predicted
+            "https://drive.google.com/uc?id=19A62Gz-3LGGBjaOHVVxokDxl2wxR8i_D", # XGB Residuals
+            "https://drive.google.com/uc?id=1BRf6BKr_GhvlCuZYqpGYhVQs2-kJt1Ih", # XGB QQ-Plot
+            "https://drive.google.com/uc?id=19uhWB2_iTA7jv83wqvTynyzPDoo0UPX1", # XGB Residuals Histogram
+        ],
+        "Dense Neural Network": [
+            "https://drive.google.com/uc?id=1O28Nb38iz9rs0or58rwrDMgDCKTqx4Xj", # DNN Actual vs Predicted
+            "https://drive.google.com/uc?id=1LIFPSTMbag94UYT7R-kbWTpwOfGyU9i5", # DNN Residuals
+            "https://drive.google.com/uc?id=1ccY-04Ll8b9097fGJMX7WfnD5J6xTFG3", # DNN QQ-Plot
+            "https://drive.google.com/uc?id=1rm27rWIbHKgQgVh2Adm6NEnNG9jA7qCH", # DNN Residuals Histogram
+        ]
+    }
+
+    # Function to fetch and cache images
+    @st.cache_data
+    def fetch_image_from_url(url):
+        response = requests.get(url)
+        response.raise_for_status()
+        return BytesIO(response.content)
+
     # Display comparison table when checkbox is selected
-    st.write("### Show all models comparison:")
+    st.write("### Show models comparison:")
     
-    show_comparison = st.checkbox('Show all models comparison')
+    show_comparison = st.checkbox('Show models comparison')
 
     if show_comparison:
         comparison_df = pd.DataFrame(model_results).T
         st.write(comparison_df)
 
-    # Metrics for individual models
-    st.write("### Choose models to display individual metrics:")
+    # Visualizations for models
+    st.write("### Choose visualizations to display models comparison:")
 
-    model_checkboxes = {
-        "Linear Regression": st.checkbox("Linear Regression"),
-        "XG Boost": st.checkbox("XG Boost"),
-        "Dense Neural Network": st.checkbox("Dense Neural Network")
+    show_act_vs_pred = st.checkbox("Actual vs Predicted Values")
+    show_residuals = st.checkbox("Residuals: Error Distribution")
+    show_qq_plot = st.checkbox("Residuals: QQ-Plot")
+    show_residuals_hist = st.checkbox("Residuals: Histogram")
+
+    # Visualization indices
+    visualization_indices = {
+        "Actual vs Predicted Values": 0,
+        "Residuals: Error Distribution": 1,
+        "Residuals: QQ-Plot": 2,
+        "Residuals: Histogram": 3
     }
 
-    for model, checkbox in model_checkboxes.items():
-        if checkbox:
-            st.write(f"**{model}**")
-            for metric, value in model_results[model].items():
-                st.write(f"{metric}: {value}")
+    # Specify the desired column order
+    column_order = ["Linear Regression", "Dense Neural Network", "XG Boost"]
+
+    # Display selected visualizations
+    if any([show_act_vs_pred, show_residuals, show_qq_plot, show_residuals_hist]):
+        # Loop through each visualization type
+        for viz_name, viz_index in visualization_indices.items():
+            if ((viz_name == "Actual vs Predicted Values" and show_act_vs_pred) or
+                (viz_name == "Residuals: Error Distribution" and show_residuals) or
+                (viz_name == "Residuals: QQ-Plot" and show_qq_plot) or
+                (viz_name == "Residuals: Histogram" and show_residuals_hist)):
+
+                st.write(f"### {viz_name}")
+
+                cols = st.columns(3)  # Create 3 columns
+                for i, model in enumerate(column_order):  # Use the specified column order
+                    with cols[i]:
+                        st.write(f"**{model}**")
+                        image_data = fetch_image_from_url(image_urls[model][viz_index])
+                        st.image(image_data, caption=f"{model} {viz_name}", use_container_width=True)
+
+
+
+
+
+
+
+
+
 
 # =====================================================================================
 # CONCLUSIONS SECTION
