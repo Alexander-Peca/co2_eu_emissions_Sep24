@@ -2099,18 +2099,20 @@ def encode_categorical_columns(df, exclude_prefix='IT_', drop_first=True):
     df_encoded = pd.get_dummies(df, columns=cat_columns, prefix=cat_columns, drop_first=drop_first)
     print(f"One-hot encoding completed with dummy variable trap prevention for columns: {cat_columns}")
 
-    # Print the number of encoded values (columns) and the encoded values per original categorical column
+    # Print the number of encoded values (columns), the encoded values, and their counts per original categorical column
     for col in cat_columns:
         encoded_values = df[col].cat.categories.tolist()[1:]  # Exclude the first as baseline
         num_encoded_cols = len(encoded_values)
         dropped_category = df[col].cat.categories[0]  # The dropped baseline category
         print(f"\nColumn '{col}' encoded into {num_encoded_cols} values (baseline category dropped):")
-        print(f"Dropped category: {dropped_category}")
-        print(f"Encoded values: {encoded_values}")
+        print(f"Dropped category: {dropped_category} (Count: {df[col].value_counts().get(dropped_category, 0)})")
+        encoded_values_counts = [f"{value} (Count: {df[col].value_counts().get(value, 0)})" for value in encoded_values]
+        print(f"Encoded values: {', '.join(encoded_values_counts)}")
 
     print("=======================\n")
 
     return df_encoded
+
 
 
 
@@ -2997,4 +2999,60 @@ def sort_columns(df):
     assert set(columns_sorted) == set(df.columns), "Mismatch in column categorization!"
 
     return columns_sorted
+
+
+
+def create_summary_tables(df, categorical_info):
+    """
+    Create summary tables for numerical columns (float32) and categorical one-hot encoded columns.
+
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+    - categorical_info (list of tuples): List of tuples containing prefix and name of dropped baseline category.
+
+    Returns:
+    - numerical_summary (pd.DataFrame): Summary table for numerical columns.
+    - categorical_summaries (dict): Dictionary of summary tables for each categorical attribute.
+    """
+    # Numerical summary (float32 only)
+    numerical_columns = df.select_dtypes(include=['float32']).columns
+    if len(numerical_columns) > 0:
+        numerical_summary = df[numerical_columns].describe().transpose()
+        numerical_summary.reset_index(inplace=True)
+        numerical_summary.rename(columns={'index': 'Column', 'mean': 'Mean', 'std': 'StdDev', 'min': 'Min', 'max': 'Max'}, inplace=True)
+    else:
+        numerical_summary = pd.DataFrame({'Message': ['No float32 numerical columns found']})
+
+    # Categorical summary
+    categorical_summaries = {}
+    for prefix, baseline_category in categorical_info:
+        encoded_columns = [col for col in df.columns if col.startswith(prefix)]
+        if not encoded_columns:
+            continue
+
+        # Calculate value counts for each encoded category
+        counts = {col: df[col].sum() for col in encoded_columns}
+
+        # Calculate value count for the baseline category
+        baseline_mask = (df[encoded_columns].sum(axis=1) == 0)
+        counts[baseline_category] = baseline_mask.sum()
+
+                # Create a horizontal table for the prefix
+        total = sum(counts.values())
+        summary_table = pd.DataFrame({
+            'Total': [total],
+            **{category: [count] for category, count in counts.items()}
+        })
+
+        # Ensure no extra row or column is created
+        summary_table.index = ['Count']  # Set index to 'Count'
+
+        categorical_summaries[prefix] = summary_table
+
+    return numerical_summary, categorical_summaries
+
+
+
+
+
 

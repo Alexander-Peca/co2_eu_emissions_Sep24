@@ -83,22 +83,38 @@ if page == pages[1]:
 
     df = st.session_state.df
     st.write('### Presentation of Data and Preprocessing')
-    st.write("Data Loaded Successfully", df.head(),df['Mh_Other'].value_counts())
+    st.write("Data Loaded Successfully")
 
     
     # get sorted column names
     columns = sort_columns(df)
     
-    ######################################################
-    # Create an HTML string with column names separated by commas
-    columns_html = ", ".join([f"<span>{col}</span>" for col in columns])
-    # Display using markdown with unsafe_allow_html=True
-    st.markdown(f"**Columns in DataSet:** {columns_html}", unsafe_allow_html=True)
-    
-    ########################################
-    with st.expander("Show Columns in DataSet"):
+    ####################################################
+    with st.expander("Show all Columns in DataSet"):
         columns_str = ", ".join(columns)
         st.write(columns_str)
+        
+        
+    ###################################################
+    # List of tuples with prefixes and baseline categories
+    categorical_info = [
+    ('Ct', 'Ct_M1 (Baseline)'),
+    ('Fm', 'Fm_B (Baseline)'),
+    ('Ft', 'Ft_DIESEL (Baseline)'),
+    ('Mh', 'Mh_AA-IVA (Baseline)'),
+    ('IT_code', 'IT_code_None (Baseline)')
+    ]
+
+    numerical_summary, categorical_summaries = create_summary_tables(df, categorical_info)
+        
+    st.header("Numerical Summary")
+    st.dataframe(numerical_summary)
+
+    st.header("Categorical Summaries")
+    for prefix, summary_table in categorical_summaries.items():
+        st.markdown(f"**Attribute {prefix}**")  # Regular text size with bold formatting
+        st.dataframe(summary_table)
+
    
 
 
