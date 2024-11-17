@@ -59,10 +59,13 @@ if page == pages[0]:
 file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 output = 'data.parquet'
 
-# Google Drive URLs for the images
-# linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
-linear_regression_image_url = "https://drive.google.com/file/d/1nO5_SZ8EBZ7qcrcKo2uJ_U_hJeDnPoUP"
-xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
+# Specify Google Drive URLs for the images
+target_vars_image_url = "https://drive.google.com/uc?id=1JRV_WK7EmEuOvktEQnnLUUM6zTEgXI_x"
+# Specify Path(name) for the images
+target_vars_image_path = "target_vars_all_years.png"
+# Download images
+gdown.download(target_vars_image_url, target_vars_image_path, quiet=False)
+
 
 
 
@@ -82,10 +85,12 @@ if page == pages[1]:
             st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
     df = st.session_state.df
-    st.write('### Presentation of Data and Preprocessing')
+    st.write('## Overview of Data and Preprocessing')
     st.write("Data Loaded Successfully")
 
-    
+    st.write("### Target Variable")
+    # Show image
+    st.image(target_vars_image_path, caption="Target Variables - all Years", use_container_width=True)
     # get sorted column names
     columns = sort_columns(df)
     
@@ -93,26 +98,76 @@ if page == pages[1]:
     with st.expander("Show all Columns in DataSet"):
         columns_str = ", ".join(columns)
         st.write(columns_str)
-        
-        
-    ###################################################
-    # List of tuples with prefixes and baseline categories
+
+    # List of tuples with prefixes, baseline categories, and long attribute names
     categorical_info = [
-    ('Ct', 'Ct_M1 (Baseline)'),
-    ('Fm', 'Fm_B (Baseline)'),
-    ('Ft', 'Ft_DIESEL (Baseline)'),
-    ('Mh', 'Mh_AA-IVA (Baseline)'),
-    ('IT_code', 'IT_code_None (Baseline)')
+        ('Ct', 'Ct_M1 (Baseline)', 'Vehicle Type'),
+        ('Fm', 'Fm_B (Baseline)', 'Fuel Mode'),
+        ('Ft', 'Ft_DIESEL (Baseline)', 'Fuel Type'),
+        ('Mh', 'Mh_AA-IVA (Baseline)', 'Manufacturer Name EU Standard Denomination'),
+        ('IT_code', 'IT_code_None (Baseline)', 'Innovative Technologies')
     ]
 
-    numerical_summary, categorical_summaries = create_summary_tables(df, categorical_info)
-        
-    st.header("Numerical Summary")
+    numerical_summary, categorical_summaries = create_attribute_summary_tables(df, categorical_info)
+
+    # Descriptions for each prefix
+    descriptions = {
+        'Ct': """
+        - **M1**: Passenger cars (up to 8 seats + driver).
+        - **M1G**: Off-road passenger cars.
+        """,
+        'Fm': """
+        - **M**: Mono-Fuel (Petrol, Diesel, LNG etc...)
+        - **B**: Bi-Fuel vehicles (e.g., LNG and Petrol)
+        - **H**: Non-plugin Hybrids
+        """,
+        'Ft': """
+        - **DIESEL**: Diesel fuel.
+        - **PETROL**: Petrol fuel.
+        - **E85**: 85% ethanol, 15% petrol.
+        - **LPG**: Liquefied petroleum gas.
+        - **NG-BIOMETHANE**: Natural gas or biomethane.
+        """,
+        'Mh': """
+        - **Mh_XXX**: Standardized EU manufacturer names.
+        - **Mh_AA-IVA**: Individual vehicle approvals (non-standard)
+        """,
+        'IT_code': """
+        - **None**: These cars have no approved innovative technology built in
+        - **IT_code_e1 2**: Alternator
+        - **IT_code_e1 29**: Alternator
+        - **IT_code_e13 17**: Alternator
+        - **IT_code_e13 19**: LED Lights
+        - **IT_code_e13 28**: LED Lights
+        - **IT_code_e13 29**: Alternator
+        - **IT_code_e13 37**: LED Lights
+        - **IT_code_e2 17**: Alternator
+        - **IT_code_e2 29**: Alternator
+        - **IT_code_e24 17**: Alternator
+        - **IT_code_e24 19**: LED Lights
+        - **IT_code_e24 28**: 48V Motor Generators
+        - **IT_code_e24 29**: Alternator
+        - **IT_code_e24 3**: Engine compartment encapsulation system
+        - **IT_code_e24 37**: LED Lights
+        - **IT_code_e8 19**: LED Lights
+        - **IT_code_e8 29**: Alternator
+        - **IT_code_e8 37**: LED Lights
+        - **IT_code_e9 29**: Alternator
+        - **IT_code_e9 37**: LED Lights
+        """
+    }
+
+    # Streamlit Output
+    st.write("### Numerical Attributes")
     st.dataframe(numerical_summary)
 
-    st.header("Categorical Summaries")
+    st.write("### Categorical Attributes")
     for prefix, summary_table in categorical_summaries.items():
-        st.markdown(f"**Attribute {prefix}**")  # Regular text size with bold formatting
+        long_name = [entry[2] for entry in categorical_info if entry[0] == prefix][0]  # Extract long name
+        st.markdown(f"**{prefix} ({long_name})**")  # Regular text size with bold formatting
+        with st.expander(f"Show details for {long_name}"):
+            if prefix in descriptions:
+                st.markdown(descriptions[prefix])  # Add description if available
         st.dataframe(summary_table)
 
    
