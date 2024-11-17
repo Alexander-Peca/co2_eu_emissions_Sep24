@@ -374,7 +374,7 @@ if page == pages[2]:
     |-------------------------|--------------------------|-------------------------------------------|-----------------------------------|---------------------|
     | Linear Regression       | No                       | Yes (persistent multicollinearity)  | Yes (generalizability) | Feature Importance  |
     | XG Boost                | Yes (opt. parameters)    | Not applicable                            | Yes (generalizability)   | Shap values         |
-    | Dense Neural Network    | No                       | Not applicable, Ridge regularization | No (validation set used) | Not applied         |
+    | Dense Neural Network    | No                       | Not applicable, Ridge regularization | No (validation set used) | Weights First Layer         |
     """
 
     st.markdown(markdown_table)
