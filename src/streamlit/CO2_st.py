@@ -59,11 +59,12 @@ if page == pages[0]:
 file_url = "https://drive.google.com/uc?id=13hNrvvMgxoxhaA9xM4gmnSQc1U2Ia4i0"  # file link to Tillmann's drive
 output = 'data.parquet'
 
-# Google Drive URLs for the images
-# linear_regression_image_url = "https://drive.google.com/uc?id=1JWR6BqH8eebiZmtyLOgslDDGHGOq4ec3"  # Feature Importance for Linear Regression
-linear_regression_image_url = "https://drive.google.com/file/d/1nO5_SZ8EBZ7qcrcKo2uJ_U_hJeDnPoUP"
-xgboost_image_url = "https://drive.google.com/uc?id=14iFU17b6_wMzsYNTdtda9ZsOrbp0Uq7D"  # Feature Importance for XGBoost
-
+# Specify Google Drive URLs for the images
+target_vars_image_url = "https://drive.google.com/uc?id=1JRV_WK7EmEuOvktEQnnLUUM6zTEgXI_x"
+# Specify Path(name) for the images
+target_vars_image_path = "target_vars_all_years.png"
+# Download images
+gdown.download(target_vars_image_url, target_vars_image_path, quiet=False)
 
 
 # Check if data is already loaded in session state, if not, load it
@@ -76,44 +77,263 @@ if page == pages[1]:
             gdown.download(file_url, output, quiet=False)
             st.session_state.df = pd.read_parquet(output)
             st.write("Data loaded successfully from Google Drive")
-
         except Exception as e:
             st.write("Failed to load data from Google Drive. Reverting to local data.")
             st.session_state.df = pd.read_parquet(r'C:\Users\alexa\Downloads\ProjectCO2--no Github\Data\minimal_withoutfc_dupesdropped_frequencies_area_removedskew_outliers3_0_NoW_tn20_mcp00.10.parquet')
 
     df = st.session_state.df
-    st.write('### Presentation of Data and Preprocessing')
-    st.write("Data Loaded Successfully")
+    st.write('## Overview of Data and Preprocessing')
+
+    st.write("Our primary dataset is the **CO₂ emissions from new passenger cars** provided by the European Environment Agency (EEA). The initial dataset was over **16 GB** on disc and included over **14 million rows** and **41 columns**.")
+
+    st.write("### Distribution of Target Variables")
+    # Show image
+    st.image(target_vars_image_path, use_container_width=True)
+
+
+    #####################################################################
+    #                    Data Preprocessing Steps                       #
+    #####################################################################
+
+    st.write("### Data Preprocessing Steps")
+        
+    with st.expander("**1. Data Loading and Initial Processing**"):
+        st.write("""
+        - Data from **2010 to 2023** was downloaded in CSV format.
+        - Due to its size, data was processed on a per-year basis.
+        - Memory optimization was performed by specifying data types and downcasting numerical columns.
+        - Duplicate entries were consolidated by counting their frequencies, reducing the dataset size to approximately **300 MB** on disk and **1.6 GB** in memory.
+        """)
+
+    with st.expander("**2. Data Cleaning**"):
+        st.write("""
+        - Cleaned categorical variables with inconsistent categories due to misspellings or variations using mapping dictionaries.
+        - Columns cleaned include **'Country'**, **'Ct'**, **'Cr'**, **'Fm'**, **'Ft'**, **'Mp'**, **'Mh'**, and **'IT'**.
+        - Parsed the **'IT'** variable, representing **Innovative Technologies**, to extract individual codes.
+        """)
+
+    with st.expander("**3. Major Dataset Selection Decisions**"):
+        st.write("""
+        - Selected **'Ewltp (g/km)'** as the target variable and removed **'Enedc (g/km)'** (obsolete testing standard).
+        - **Dropped all years prior to 2019**, focusing on the most recent data.
+        - Selected the top three countries by frequency: **Germany (DE)**, **France (FR)**, and **Italy (IT)**.
+        - Excluded electric and plug-in hybrid cars to focus on combustion engine vehicles.
+        """)
+
+    with st.expander("**4. Feature Selection and Dropping Columns**"):
+        st.write("""
+        We focused on retaining technical attributes relevant for modeling CO₂ emissions and dropped non-essential or redundant columns.
+
+        **Columns Dropped:**
+
+        - **Car Identifiers**: 'Ve', 'Va', 'T', 'Tan', 'ID'
+        - **Administrative Values**: 'Date of registration', 'Status', 'Vf', 'De'
+        - **Data Related Columns**: 'r'
+        - **Brand Related**: 'Mp', 'Man', 'MMS'
+        - **Temporary or Transformed**: 'IT', 'IT_valid', 'IT_invalid', 'Non_Electric_Car'
+        - **Target Redundant**: 'Enedc (g/km)', 'Fuel consumption', 'Erwltp (g/km)', 'Ernedc (g/km)'
+        - **Collinear Attributes**: 'm (kg)'
+        - **Other Columns**: 'Cr', 'ech', 'RLFI', 'Electric range (km)', 'z (Wh/km)', 'year'
+        - **Individual Columns**: 'Mk', 'Country', 'Cn', 'VFN'
+
+        **Columns Retained:**
+
+        - **Categorical Attributes**:
+            - **'Mh'**: Manufacturer name EU standard denomination
+            - **'Ct'**: Category of Vehicle (Passenger cars vs. off-road)
+            - **'Ft'**: Fuel type (Petrol, Diesel, LPG, etc.)
+            - **'Fm'**: Fuel mode (Mono-Fuel, Bi-Fuel, etc.)
+            - **'IT_1' to 'IT_5'**: Innovative Technologies codes
+
+        - **Numerical Attributes**:
+            - **'Mt'**: Test mass in kg as measured for the WLTP test
+            - **'ep (KW)'**: Engine power in kW
+            - **'ec (cm3)'**: Engine capacity in cm³
+            - **'At1 (mm)'**: Axle width (steering axle) in mm
+            - **'Area (m²)'**: Calculated from existing dimensions
+        """)
+
+    with st.expander("**5. Category Selection and Encoding**"):
+        st.write("""
+        We refined categorical variables to focus on the most significant categories.
+        
+        **General Selection Criteria:**
+        - Categories were selected using two parameters:
+            - **top_n = 20**: Retained the top 20 most frequent categories.
+            - **min_cat_percent = 0.1**: Ensured each retained category represents at least 0.1% of the total dataset.
+        - Categories not meeting these criteria were labeled as **'Other'**.
+
+        **Category Selection Details:**
+        - **'Mh' (Manufacturer)**:
+            - Kept categories: 'VOLKSWAGEN', 'BMW AG', 'MERCEDES-BENZ AG', 'AUDI AG', 'SKODA', 'FORD WERKE GMBH', 'SEAT', 'RENAULT', 'PSA', 'OPEL AUTOMOBILE', 'AUTOMOBILES PEUGEOT', 'VOLVO', 'PORSCHE', 'JAGUAR LAND ROVER LIMITED', 'FIAT GROUP', 'AUTOMOBILES CITROEN', 'AA-IVA', 'STELLANTIS EUROPE', 'TOYOTA', 'DACIA'
+            - Replaced **200,589** values with 'Other'.
+
+        - **'Ct' (Vehicle Category)**:
+            - Kept categories: 'M1', 'M1G'
+            - Replaced **594** values with 'Other'.
+
+        - **'Ft' (Fuel Type)**:
+            - Kept categories: 'DIESEL', 'PETROL', 'NG-BIOMETHANE', 'LPG', 'E85'
+            - **Dropped 26,963 rows** not in specified categories.
+
+        - **'Fm' (Fuel Mode)**:
+            - Kept categories: 'M', 'H', 'B'
+            - Replaced **1,034** values with 'Other'.
+
+        - **'IT' (Innovative Technologies)**:
+            - Retained top 20 IT codes occurring more than 0.1%; others labeled as 'Other'.
+
+        **Encoding:**
+
+        - **One-hot encoded** categorical variables with **baseline categories dropped** to prevent multicollinearity.
+        - **'IT'** codes were one-hot encoded across **'IT_1'** to **'IT_5'** columns.
+
+        """)
+
+    with st.expander("**6. Handling Outliers**"):
+        st.write("""
+        **Outlier Handling:**
+
+        - Applied an IQR multiplier of **3.0** for less aggressive outlier removal.
+        - **Gaussian Columns (Replaced outliers with median):**
+            - **'Mt'**: Replaced **3,131** outliers with median **1,500.0**.
+            - **'W (mm)'**: Replaced **143,449** outliers with median **2,624.0**.
+            - **'At1 (mm)'**: Replaced **2,519** outliers with median **1,545.0**.
+            - **'At2 (mm)'**: Replaced **1,411** outliers with median **1,542.0**.
+
+        - **Non-Gaussian Columns (Capped outliers):**
+            - **'Ewltp (g/km)'**: Capped **151,536** outliers between **33.0** and **243.0**.
+
+        - Highly skewed attributes **'ep (KW)'** and **'ec (cm3)'** were transformed using the **Box-Cox** method.
+
+        """)
+
+    with st.expander("**7. Handling Missing Values**"):
+        st.write("""
+        **Missing Values Handling:**
+
+        - Dropped rows with missing values in key columns:
+            - **'Mh'**: Dropped **13** rows.
+            - **'Ct'**: Dropped **2,095** rows.
+            - **'Mt'**: Dropped **73,424** rows.
+            - **'W (mm)'**: Dropped **742,035** rows.
+            - **'At1 (mm)'**: Dropped **868,257** rows.
+            - **'At2 (mm)'**: Dropped **869,004** rows.
+            - **'Ft'**: Dropped **4** rows.
+            - **'Fm'**: Dropped **3** rows.
+
+        - Left NaNs in **'IT'** columns as missing values are expected.
+
+        """)
+
+    with st.expander("**8. Feature Engineering**"):
+        st.write("""
+        - **Created new feature 'Area (m²)'**:
+            - Calculated as: **Area = W * (At1 + At2) / 2 / 1,000,000**
+            - Represents the car's footprint, capturing size-related characteristics.
+        - Removed **'W (mm)'** and **'At2 (mm)'** to reduce collinearity.
+
+        """)
+        
+    with st.expander("**9. Duplicate Removal**"):
+        st.write("""
+        - Removed duplicate rows and recorded frequencies to maintain data representation.
+        - Initial row count: **3,731,632**
+        - Final row count after removing duplicates: **2,000,450**
+        """)
 
     
-    # get sorted column names
-    columns = sort_columns(df)
+
+    #####################################################################
+    #                         Final Dataset                             #
+    #####################################################################
     
-    ####################################################
+    st.write("### **Final Dataset:**")
+    st.write("""- The final dataset contains **2,000,450 rows** and **56 columns**, reduced from the initial **16 GB** to approximately **19 MB** on disk and **282.4 MB** in memory.
+    """)
+
+    st.write("### Numerical and Categorical Attribute Distributions")
+
+      # Get sorted column names
+    columns = sort_columns(df)
+
     with st.expander("Show all Columns in DataSet"):
         columns_str = ", ".join(columns)
         st.write(columns_str)
-        
-        
-    ###################################################
-    # List of tuples with prefixes and baseline categories
+
+    # List of tuples with prefixes, baseline categories, and long attribute names
     categorical_info = [
-    ('Ct', 'Ct_M1 (Baseline)'),
-    ('Fm', 'Fm_B (Baseline)'),
-    ('Ft', 'Ft_DIESEL (Baseline)'),
-    ('Mh', 'Mh_AA-IVA (Baseline)'),
-    ('IT_code', 'IT_code_None (Baseline)')
+        ('Ct', 'Ct_M1 (Baseline)', 'Vehicle Type'),
+        ('Fm', 'Fm_B (Baseline)', 'Fuel Mode'),
+        ('Ft', 'Ft_DIESEL (Baseline)', 'Fuel Type'),
+        ('Mh', 'Mh_AA-IVA (Baseline)', 'Manufacturer'),
+        ('IT_code', 'IT_code_None (Baseline)', 'Innovative Technologies')
     ]
 
-    numerical_summary, categorical_summaries = create_summary_tables(df, categorical_info)
-        
-    st.header("Numerical Summary")
+    numerical_summary, categorical_summaries = create_attribute_summary_tables(df, categorical_info)
+
+    # Descriptions for each prefix
+    descriptions = {
+        'Ct': """
+        - **M1**: Passenger cars (up to 8 seats + driver).
+        - **M1G**: Off-road passenger cars.
+        """,
+        'Fm': """
+        - **M**: Mono-Fuel (Petrol, Diesel, LNG, etc.).
+        - **B**: Bi-Fuel vehicles (e.g., LNG and Petrol).
+        - **H**: Non-plugin Hybrids.
+        """,
+        'Ft': """
+        - **DIESEL**: Diesel fuel.
+        - **PETROL**: Petrol fuel.
+        - **E85**: 85% ethanol, 15% petrol.
+        - **LPG**: Liquefied petroleum gas.
+        - **NG-BIOMETHANE**: Natural gas or biomethane.
+        """,
+        'Mh': """
+        - **Mh_XXX**: Standardized EU manufacturer names.
+        - **Mh_AA-IVA**: Individual vehicle approvals (non-standard).
+        """,
+        'IT_code': """
+        - **None**: No approved innovative technology.
+        - **IT_code_e1 2**: Alternator.
+        - **IT_code_e1 29**: Alternator.
+        - **IT_code_e13 17**: Alternator.
+        - **IT_code_e13 19**: LED Lights.
+        - **IT_code_e13 28**: LED Lights.
+        - **IT_code_e13 29**: Alternator.
+        - **IT_code_e13 37**: LED Lights.
+        - **IT_code_e2 17**: Alternator.
+        - **IT_code_e2 29**: Alternator.
+        - **IT_code_e24 17**: Alternator.
+        - **IT_code_e24 19**: LED Lights.
+        - **IT_code_e24 28**: 48V Motor Generators.
+        - **IT_code_e24 29**: Alternator.
+        - **IT_code_e24 3**: Engine compartment encapsulation system.
+        - **IT_code_e24 37**: LED Lights.
+        - **IT_code_e8 19**: LED Lights.
+        - **IT_code_e8 29**: Alternator.
+        - **IT_code_e8 37**: LED Lights.
+        - **IT_code_e9 29**: Alternator.
+        - **IT_code_e9 37**: LED Lights.
+        """
+    }
+
+    # Streamlit Output
+    st.write("#### Numerical Attributes")
     st.dataframe(numerical_summary)
 
-    st.header("Categorical Summaries")
+    st.write("#### Categorical Attributes")
     for prefix, summary_table in categorical_summaries.items():
-        st.markdown(f"**Attribute {prefix}**")  # Regular text size with bold formatting
+        long_name = [entry[2] for entry in categorical_info if entry[0] == prefix][0]
+        st.markdown(f"**{prefix} ({long_name})**")
+        with st.expander(f"Show details for {long_name}"):
+            if prefix in descriptions:
+                st.markdown(descriptions[prefix])
         st.dataframe(summary_table)
+
+
+
 
    
 
@@ -159,7 +379,7 @@ if page == pages[2]:
     |-------------------------|--------------------------|-------------------------------------------|-----------------------------------|---------------------|
     | Linear Regression       | No                       | Yes (persistent multicollinearity)  | Yes (generalizability) | Feature Importance  |
     | XG Boost                | Yes (opt. parameters)    | Not applicable                            | Yes (generalizability)   | Shap values         |
-    | Dense Neural Network    | No                       | Not applicable, Ridge regularization | No (validation set used) | Not applied         |
+    | Dense Neural Network    | No                       | Not applicable, Ridge regularization | No (validation set used) | Weights First Layer         |
     """
 
     st.markdown(markdown_table)

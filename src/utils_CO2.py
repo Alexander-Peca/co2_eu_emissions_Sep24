@@ -2953,7 +2953,7 @@ def plot_weighted_boxplots(df, weight_column, exclude_columns=None, IQR_distance
 
 
 ############################################################################################
-##############################  For Streamlit Presentation #########################################
+##############################  For Streamlit Presentation #################################
 ############################################################################################
 
 ########## sort columns ##############
@@ -3002,13 +3002,13 @@ def sort_columns(df):
 
 
 
-def create_summary_tables(df, categorical_info):
+def create_attribute_summary_tables(df, categorical_info):
     """
     Create summary tables for numerical columns (float32) and categorical one-hot encoded columns.
 
     Parameters:
     - df (pd.DataFrame): The input DataFrame.
-    - categorical_info (list of tuples): List of tuples containing prefix and name of dropped baseline category.
+    - categorical_info (list of tuples): List of tuples containing prefix, name of dropped baseline category, and long attribute name.
 
     Returns:
     - numerical_summary (pd.DataFrame): Summary table for numerical columns.
@@ -3025,7 +3025,7 @@ def create_summary_tables(df, categorical_info):
 
     # Categorical summary
     categorical_summaries = {}
-    for prefix, baseline_category in categorical_info:
+    for prefix, baseline_category, _ in categorical_info:  # Ignore long name here
         encoded_columns = [col for col in df.columns if col.startswith(prefix)]
         if not encoded_columns:
             continue
@@ -3037,7 +3037,7 @@ def create_summary_tables(df, categorical_info):
         baseline_mask = (df[encoded_columns].sum(axis=1) == 0)
         counts[baseline_category] = baseline_mask.sum()
 
-                # Create a horizontal table for the prefix
+        # Create a horizontal table for the prefix
         total = sum(counts.values())
         summary_table = pd.DataFrame({
             'Total': [total],
