@@ -185,7 +185,7 @@ if page == pages[1]:
 
         **Encoding:**
 
-        - One-hot encoded categorical variables with baseline categories dropped to prevent multicollinearity.
+        - **One-hot encoded** categorical variables with **baseline categories dropped** to prevent multicollinearity.
         - **'IT'** codes were one-hot encoded across **'IT_1'** to **'IT_5'** columns.
 
         """)
@@ -199,10 +199,10 @@ if page == pages[1]:
             - **'Mt'**: Replaced **3,131** outliers with median **1,500.0**.
             - **'W (mm)'**: Replaced **143,449** outliers with median **2,624.0**.
             - **'At1 (mm)'**: Replaced **2,519** outliers with median **1,545.0**.
-            - **'At2 (mm)'**: Replaced **1,403** outliers with median **1,542.0**.
+            - **'At2 (mm)'**: Replaced **1,411** outliers with median **1,542.0**.
 
         - **Non-Gaussian Columns (Capped outliers):**
-            - **'Ewltp (g/km)'**: Capped **151,522** outliers between **33.0** and **243.0**.
+            - **'Ewltp (g/km)'**: Capped **151,536** outliers between **33.0** and **243.0**.
 
         - Highly skewed attributes **'ep (KW)'** and **'ec (cm3)'** were transformed using the **Box-Cox** method.
 
