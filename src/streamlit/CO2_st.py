@@ -67,8 +67,6 @@ target_vars_image_path = "target_vars_all_years.png"
 gdown.download(target_vars_image_url, target_vars_image_path, quiet=False)
 
 
-
-
 # Check if data is already loaded in session state, if not, load it
 # if "df" not in st.session_state:
 #    st.session_state.df = None  # Initialize df in session state
@@ -86,13 +84,19 @@ if page == pages[1]:
     df = st.session_state.df
     st.write('## Overview of Data and Preprocessing')
 
-    st.write("""
-    ### Data Preprocessing Steps
+    st.write("Our primary dataset is the **CO₂ emissions from new passenger cars** provided by the European Environment Agency (EEA). The initial dataset was over **16 GB** on disc and included over **14 million rows** and **41 columns**.")
 
-    Our primary dataset is the **CO₂ emissions from new passenger cars** provided by the European Environment Agency (EEA). The initial dataset was over **16 GB** in size and included over **16 million rows** and **41 columns**.
+    st.write("### Distribution of Target Variables")
+    # Show image
+    st.image(target_vars_image_path, use_container_width=True)
 
-    """)
 
+    #####################################################################
+    #                    Data Preprocessing Steps                       #
+    #####################################################################
+
+    st.write("### Data Preprocessing Steps")
+        
     with st.expander("**1. Data Loading and Initial Processing**"):
         st.write("""
         - Data from **2010 to 2023** was downloaded in CSV format.
@@ -113,7 +117,7 @@ if page == pages[1]:
         - Selected **'Ewltp (g/km)'** as the target variable and removed **'Enedc (g/km)'** (obsolete testing standard).
         - **Dropped all years prior to 2019**, focusing on the most recent data.
         - Selected the top three countries by frequency: **Germany (DE)**, **France (FR)**, and **Italy (IT)**.
-        - Excluded electric and hybrid cars to focus on combustion engine vehicles.
+        - Excluded electric and plug-in hybrid cars to focus on combustion engine vehicles.
         """)
 
     with st.expander("**4. Feature Selection and Dropping Columns**"):
@@ -152,14 +156,14 @@ if page == pages[1]:
     with st.expander("**5. Category Selection and Encoding**"):
         st.write("""
         We refined categorical variables to focus on the most significant categories.
-
-        - For categorical variables, categories were selected using:
-            - **top_n**: Retained the top 20 most frequent categories.
-            - **min_cat_percent**: Ensured each retained category represents at least 0.1% of the total dataset.
+        
+        **General Selection Criteria:**
+        - Categories were selected using two parameters:
+            - **top_n = 20**: Retained the top 20 most frequent categories.
+            - **min_cat_percent = 0.1**: Ensured each retained category represents at least 0.1% of the total dataset.
         - Categories not meeting these criteria were labeled as **'Other'**.
 
         **Category Selection Details:**
-
         - **'Mh' (Manufacturer)**:
             - Kept categories: 'VOLKSWAGEN', 'BMW AG', 'MERCEDES-BENZ AG', 'AUDI AG', 'SKODA', 'FORD WERKE GMBH', 'SEAT', 'RENAULT', 'PSA', 'OPEL AUTOMOBILE', 'AUTOMOBILES PEUGEOT', 'VOLVO', 'PORSCHE', 'JAGUAR LAND ROVER LIMITED', 'FIAT GROUP', 'AUTOMOBILES CITROEN', 'AA-IVA', 'STELLANTIS EUROPE', 'TOYOTA', 'DACIA'
             - Replaced **200,589** values with 'Other'.
@@ -230,24 +234,25 @@ if page == pages[1]:
         - Removed **'W (mm)'** and **'At2 (mm)'** to reduce collinearity.
 
         """)
+        
+    with st.expander("**9. Duplicate Removal**"):
+        st.write("""
+        - Removed duplicate rows and recorded frequencies to maintain data representation.
+        - Initial row count: **3,731,632**
+        - Final row count after removing duplicates: **2,000,450**
+        """)
 
-    st.write("""
-    **Final Dataset:**
+    
 
-    - Removed duplicate rows and recorded frequencies to maintain data representation.
-    - Initial row count: **3,731,632**
-    - Final row count after removing duplicates: **2,000,450**
-    - The final dataset contains **2,000,450 rows** and **56 columns**, reduced from the initial **16 GB** to approximately **282.4 MB** in memory.
-
+    #####################################################################
+    #                         Final Dataset                             #
+    #####################################################################
+    
+    st.write("### **Final Dataset:**")
+    st.write("""- The final dataset contains **2,000,450 rows** and **56 columns**, reduced from the initial **16 GB** to approximately **19 MB** on disk and **282.4 MB** in memory.
     """)
 
-    st.write("### Data Visualization")
-
-    st.write("#### Distribution of Target Variable")
-    # Show image
-    st.image(target_vars_image_path, caption="Target Variables - All Years", use_container_width=True)
-
-    st.write("#### Numerical and Categorical Attribute Distributions")
+    st.write("### Numerical and Categorical Attribute Distributions")
 
       # Get sorted column names
     columns = sort_columns(df)
@@ -315,10 +320,10 @@ if page == pages[1]:
     }
 
     # Streamlit Output
-    st.write("### Numerical Attributes")
+    st.write("#### Numerical Attributes")
     st.dataframe(numerical_summary)
 
-    st.write("### Categorical Attributes")
+    st.write("#### Categorical Attributes")
     for prefix, summary_table in categorical_summaries.items():
         long_name = [entry[2] for entry in categorical_info if entry[0] == prefix][0]
         st.markdown(f"**{prefix} ({long_name})**")
