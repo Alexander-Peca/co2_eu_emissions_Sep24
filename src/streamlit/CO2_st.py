@@ -52,7 +52,6 @@ if page == pages[0]:
         st.write('## Project Purpose')
         st.markdown("""
         - Car emissions remain the highest compared to other sectors in the EU.
-        - Supporting the automotive industry in achieving the EU's 2035 target of 0 g CO₂/km.
         - Using ML and data science to analyze emission factors.
         - Pinpointing technical characteristics of cars which contribute to pollution.
         """)
@@ -570,37 +569,36 @@ if page == pages[3]:
 # =====================================================================================
 
 if page == pages[4]:
-    st.write("## Conclusion about the Models")
+    st.write("## Conclusions")
 
+    # Conclusion about the Models
+    st.subheader("Model Performance")
     st.write("""
-    **XGBoost** emerges as the strongest model in terms of predictive accuracy, with the lowest Mean Squared Error (MSE) and the highest R-squared. 
-    It effectively captures non-linear relationships that Linear Regression cannot, offering an optimal balance of performance and efficiency.
+    **XGBoost**:
+    - Achieved the best predictive accuracy.
+    - Lowest Mean Squared Error (MSE) and highest R-squared.
+    - Effectively captures non-linear relationships.
+    - Provides an optimal balance of performance and efficiency.
+    
+    **Dense Neural Network (DNN)**:
+    - A strong contender with fast training and high R-squared.
+    - Requires further fine-tuning to prevent overfitting.
+
+    **Linear Regression**:
+    - Offers simplicity and interpretability.
+    - Underperforms relative to XGBoost and DNN.
+
+    **Recommendation**: XGBoost 
     """)
 
-    st.write("""
-    **Dense Neural Network (DNN)** is a close runner-up, with fast training times and high R-squared. However, it requires further fine-tuning to prevent overfitting.
-    """)
+    # Checkbox for "Outlook and Improvements"
+    show_outlook = st.checkbox("Outlook and Improvements")
 
-    st.write("""
-    Although **Linear Regression** provides interpretability and simplicity, its performance metrics suggest it is not enough for this dataset. 
-    It is useful as a benchmark, but it falls behind compared to XGBoost and DNN.
-    """)
-
-    st.write("""
-    In conclusion, **XGBoost** is recommended as the primary model due to its optimal balance of accuracy, stability, and efficiency.
-    """)
-
-    st.write("## Conclusion about the Subject Matter")
-    st.write("""
-    Shifting to electric-powered vehicles emitting 0 CO₂/km is the future, as car manufacturers are increasingly adopting this standard.
-    """)
-
-    st.write("## Prospects for Improvement")
-    st.write("""
-    - **Ensemble Methods**: Combining predictions from Linear Regression, XGBoost, and Dense Neural Networks could improve accuracy.
-    - **Hyperparameter Tuning**: More exhaustive tuning like Bayesian Optimization could optimize XGBoost and DNN.
-    - **Deep Learning Architectures**: Exploring CNNs or Residual Connections could improve model performance.
-    - **Cross-validation with Time Series Splits**: Ensures better model generalization across different periods.
-    - **Data Augmentation**: Techniques like SMOTE could balance underrepresented categories in the dataset.
-    """)
+    if show_outlook:
+        st.write("""
+        - **Ensemble Learning**: Combining Linear Regression, XGBoost, and Dense Neural Networks for improved predictions.
+        - **Hyperparameter Tuning**: Leveraging techniques like Bayesian Optimization for XGBoost and DNN.
+        - **Advanced Architectures**: Experimenting with CNNs or Residual Connections to boost model performance.
+        - **Data Augmentation**: Using methods like SMOTE to address class imbalances.
+        """)
 
