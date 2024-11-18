@@ -6,6 +6,8 @@ import streamlit as st
 import gdown  # to load data from Tillmann's google drive
 import os
 import sys
+import requests
+from io import BytesIO
 
 # Add the src directory to the system path
 sys.path.append(os.path.abspath(os.path.join('..')))
@@ -413,8 +415,6 @@ if page == pages[2]:
 # =====================================================================================
 # MODELISATION AND ANALYSIS SECTION
 # =====================================================================================
-import requests
-from io import BytesIO
 
 if page == pages[3]:
     st.write("## Modelisation")
