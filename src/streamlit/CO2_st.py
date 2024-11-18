@@ -448,7 +448,7 @@ if page == pages[2]:
 # =====================================================================================
 
 if page == pages[3]:
-    st.write("## Models Performance ")
+    st.write("## Models Performance")
 
     # Metrics for each model
     model_results = {
