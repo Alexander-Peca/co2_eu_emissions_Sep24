@@ -437,7 +437,7 @@ if page == pages[2]:
 
     # Show images in Streamlit
     st.image(linear_regression_image_path, caption="Feature Importance - Linear Regression", use_container_width=True)
-    st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_container_width=True)
+    st.image(xgboost_image_path, caption="SHAP Values - XGBoost", use_container_width=False, width = 450)
     st.image(dnn_image_path, caption="Weights First Layer - DNN", use_container_width=True)
 
 
@@ -448,7 +448,7 @@ if page == pages[2]:
 # =====================================================================================
 
 if page == pages[3]:
-    st.write("## Modelisation")
+    st.write("## Models Performance")
 
     # Metrics for each model
     model_results = {
