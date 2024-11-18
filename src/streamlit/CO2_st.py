@@ -24,35 +24,66 @@ import numpy as np
 # STREAMLIT OVERALL STRUCTURE
 # =====================================================================================
 
-st.title("CO2 Emissions by Vehicles")
+
+st.markdown(
+    '<p style="font-size: 20px; font-style: italic; margin-bottom: -50px;">Project defence</p>', 
+    unsafe_allow_html=True)
+st.markdown("<h1 style='font-size: 48px;'>CO<sub>2</sub> emissions by vehicles</h1>", unsafe_allow_html=True)  # Groß mit CO₂
+
 pages = ["Home", "Data and Preprocessing", "Choice of Models", "Evaluating Model Performance", "Conclusions"]
-page = st.sidebar.radio("Navigate to:", pages)
+page = st.sidebar.radio("Go to", pages)
 
 # =====================================================================================
 # HOME SECTION
 # =====================================================================================
 
 if page == pages[0]:
-    st.write('## Context')
+    # "Click 1" checkbox
+    show_click_1 = st.checkbox("Introduction")
 
-    # Adding an image to give context
-    image_url = "https://www.mcilvainmotors.com/wp-content/uploads/2024/02/Luxury-Car-Increased-Emission.jpg"
-    st.image(image_url, caption="Luxury Car Emissions", use_container_width=True)
+    # Conditional image display
+    if show_click_1:
+        # Display the second image
+        image_url = "https://www.researchgate.net/profile/Yan-Ma-14/publication/344081717/figure/fig1/AS:953388120420352@1604316849199/CO2-emissions-in-the-European-Union-EU-a-evolution-of-CO2-emission-in-the-EU-by.jpg"
+        #https://www.europarl.europa.eu/resources/library/images/20220524PHT31019/20220524PHT31019_original.jpg"
+        st.image(image_url, caption="Comparison of emissions by sector- Dissertation by Yan Ma 2019", use_container_width=True)
 
-    # Description text
-    st.write("""
-        **Understanding the problem:**
-        Identifying the vehicles that emit the most CO2 is crucial to understanding the technical characteristics that contribute to pollution. 
-        Predicting this pollution in advance helps prevent the development of new types of vehicles that may worsen emissions.
-    """)
+            # Project Purpose
+        st.write('## Project Purpose')
+        st.markdown("""
+        - Car emissions remain the highest compared to other sectors in the EU.
+        - Supporting the automotive industry in achieving the EU's 2035 target of 0 g CO₂/km.
+        - Using ML and data science to analyze emission factors.
+        - Pinpointing technical characteristics of cars which contribute to pollution.
+        """)
+    else:
+        # Display the first image
+        image_url = "https://www.mcilvainmotors.com/wp-content/uploads/2024/02/Luxury-Car-Increased-Emission.jpg"
+        st.image(image_url, caption="Representative image - emissions from a car", use_container_width=True)
 
-    # Project Purpose and Goals
-    st.write('### Project Purpose and Goals')
-    st.write("""
-        This project uses machine learning to help the automotive industry meet the EU’s 2035 target of 0 g CO₂/km for passenger cars and vans. 
-        By analyzing extensive vehicle data, we aim to identify factors influencing CO₂ emissions, helping manufacturers design low-emission vehicles. 
-        Additionally, the project optimizes production strategies, enabling early design adjustments as the industry shifts toward zero-emission vehicles.
-    """)
+
+    # Checkbox for Economic Benefits
+    show_benefits = st.checkbox("Benefits & Goals")
+    if show_benefits:
+        st.header("Economic Selling Points")
+        st.markdown("""
+        - Preventing the introduction & development of high-pollution vehicle types.  
+        ➡️ Avoiding penalties for non-compliance with CO₂ regulations.
+        - Reducing redesign costs by optimizing vehicle development.  
+        ➡️ Efficient production strategies.  
+        ➡️ Enabling competitive pricing.   
+        - Boosting brand reputation with eco-friendly recognition.
+        """)
+
+        st.header("Technical Goals & Scientific Contribution")
+        st.markdown("""
+        - Data mining, engenering, select features, train, and evaluate models.
+        - Identifying emission-related data patterns.  
+        - Focus on CO₂ emissions during operation.
+        - Correlate vehicle features with CO₂ emissions.
+        - Predict emissions from technical characteristics.
+        """)
+
 
 # =====================================================================================
 # DATA PREPROCESSING SECTION
